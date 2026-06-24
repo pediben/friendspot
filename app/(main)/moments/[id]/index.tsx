@@ -20,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase, uploadFile } from "@/lib/supabase";
 import { useAuthStore } from "@/hooks/useAuth";
 import { Moment, Photo, Expense, ExpenseSplit, Profile } from "@/types/database";
+import { getSignedUrl } from "@/lib/supabase";
 import { Colors } from "@/constants/Colors";
 import { Avatar } from "@/components/ui/Avatar";
 
@@ -33,6 +34,7 @@ export default function MomentDetailScreen() {
   const [moment, setMoment] = useState<Moment | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("album");
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [expenses, setExpenses] = useState<(Expense & { payer: Profile; splits: (ExpenseSplit & { user: Profile })[] })[]>([]);
   const [loading, setLoading] = useState(true);
   const [isInPlanningGroup, setIsInPlanningGroup] = useState(false);
@@ -53,7 +55,19 @@ export default function MomentDetailScreen() {
     ]);
 
     setMoment(momentRes.data);
-    setPhotos(photosRes.data ?? []);
+    const fetchedPhotos = (photosRes.data ?? []) as Photo[];
+    setPhotos(fetchedPhotos);
+
+    // Resolve signed URLs for all photos
+    const urlMap: Record<string, string> = {};
+    await Promise.all(
+      fetchedPhotos.map(async (p) => {
+        const url = await getSignedUrl("photos", p.image_url);
+        if (url) urlMap[p.id] = url;
+      })
+    );
+    setPhotoUrls(urlMap);
+
     setExpenses((expensesRes.data ?? []) as any);
     setIsInPlanningGroup((planningRes.data ?? []).length > 0);
     setLoading(false);
@@ -146,11 +160,17 @@ export default function MomentDetailScreen() {
             <Text style={styles.addPhotoText}>Add photos</Text>
           </TouchableOpacity>
           {photos.map((p) => (
-            <Image
-              key={p.id}
-              source={{ uri: `https://YOUR_SUPABASE_URL/storage/v1/object/sign/photos/${p.image_url}` }}
-              style={styles.photo}
-            />
+            photoUrls[p.id] ? (
+              <Image
+                key={p.id}
+                source={{ uri: photoUrls[p.id] }}
+                style={styles.photo}
+              />
+            ) : (
+              <View key={p.id} style={[styles.photo, styles.photoLoading]}>
+                <ActivityIndicator color={Colors.textFaint} size="small" />
+              </View>
+            )
           ))}
         </ScrollView>
       )}
@@ -271,6 +291,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     margin: 4,
     backgroundColor: Colors.bgCard,
+  },
+  photoLoading: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   addExpenseBtn: {
     flexDirection: "row",

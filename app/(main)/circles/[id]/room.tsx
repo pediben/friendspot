@@ -23,7 +23,22 @@ import {
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Room, RoomEvent, Participant } from "livekit-client";
-import { useParticipants, AudioSession } from "@livekit/react-native";
+
+// @livekit/react-native uses native modules not available in Expo Go.
+// Dynamically require so the module error is caught at runtime, not import time.
+let useParticipants: (opts?: { room?: Room }) => { participants: Participant[] } =
+  () => ({ participants: [] });
+let AudioSession: { startAudioSession: () => Promise<void>; stopAudioSession: () => Promise<void> } = {
+  startAudioSession: async () => {},
+  stopAudioSession: async () => {},
+};
+try {
+  const lkRN = require("@livekit/react-native");
+  useParticipants = lkRN.useParticipants;
+  AudioSession = lkRN.AudioSession;
+} catch {
+  console.warn("@livekit/react-native not available (Expo Go). Voice rooms disabled.");
+}
 import { getCircleRoomToken } from "@/lib/livekit";
 import { Avatar } from "@/components/ui/Avatar";
 import { Ionicons } from "@expo/vector-icons";
@@ -41,23 +56,12 @@ export default function DropInRoomScreen() {
 
   const intentionalLeave = useRef(false);
   const reconnectTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const participants     = useParticipants({ room });
+  const { participants } = useParticipants({ room });
 
   // ── Setup: audio + token + connect ──────────────────────────────────────
   const joinRoom = useCallback(async () => {
     setLoading(true);
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (AudioSession.configureAudio as any)({
-        android: { audioType: "voiceCommunication", preferHeadset: false, forceHandsfree: false },
-        ios: {
-          defaultOutput: "speaker",
-          mixWithOthers: false,
-          audioMode: "voiceChat",
-          audioCategory: "playAndRecord",
-          audioCategoryOptions: ["defaultToSpeaker", "allowBluetooth"],
-        },
-      });
       await AudioSession.startAudioSession();
 
       const { token, url } = await getCircleRoomToken(id);

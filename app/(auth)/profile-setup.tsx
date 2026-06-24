@@ -54,13 +54,17 @@ export default function ProfileSetupScreen() {
       .update({ display_name: name.trim(), avatar_url: avatarUrl })
       .eq("id", user.id);
 
-    setLoading(false);
-
     if (error) {
+      setLoading(false);
       Alert.alert("Error", error.message);
-    } else {
-      router.replace("/(auth)/contacts");
+      return;
     }
+
+    // Stamp display_name in auth metadata so returning-user check works
+    await supabase.auth.updateUser({ data: { display_name: name.trim() } });
+
+    setLoading(false);
+    router.replace("/(auth)/contacts");
   };
 
   return (
@@ -109,7 +113,7 @@ export default function ProfileSetupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0F0F1A",
+    backgroundColor: "#0C0D0B",
     paddingHorizontal: 32,
     paddingTop: 80,
   },

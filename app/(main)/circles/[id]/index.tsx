@@ -3,7 +3,7 @@
  * Top: Live Room bar (shows active members, tap to join)
  * Bottom: Voice thread (async voice notes feed + recorder)
  */
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -14,9 +14,11 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useVoiceNotes } from "@/hooks/useVoiceNotes";
 import { useAuthStore } from "@/hooks/useAuth";
+import { shareSpotInvite, distributePendingKeys } from "@/lib/invites";
 import { VoiceNotePlayer } from "@/components/voice/VoiceNotePlayer";
 import { VoiceNoteRecorder } from "@/components/voice/VoiceNoteRecorder";
 import { CircleMessageWithSender } from "@/types/database";
@@ -25,8 +27,20 @@ import { Colors } from "@/constants/Colors";
 export default function CircleDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuthStore();
+  const insets = useSafeAreaInsets();
   const { notes, loading, sendVoiceNote } = useVoiceNotes(id);
   const listRef = useRef<FlatList>(null);
+  const [spotName, setSpotName] = useState("Spot");
+
+  // Load spot name + distribute any pending E2EE keys for new members
+  useEffect(() => {
+    if (!id) return;
+    const { supabase: sb } = require("@/lib/supabase");
+    sb.from("circles").select("name").eq("id", id).single()
+      .then(({ data }: any) => { if (data?.name) setSpotName(data.name); });
+    // Fire-and-forget: wrap circle key for any pending new members
+    distributePendingKeys(id).catch(() => {});
+  }, [id]);
 
   const handleSend = async (uri: string, durationMs: number, waveform: number[]) => {
     try {
@@ -47,18 +61,35 @@ export default function CircleDetailScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          Circle
+          {spotName}
         </Text>
-        <TouchableOpacity
-          onPress={() => router.push(`/(main)/circles/${id}/settings` as any)}
-        >
-          <Ionicons name="ellipsis-horizontal" size={22} color={Colors.textMuted} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+          <TouchableOpacity
+            onPress={() => router.push(`/(main)/circles/${id}/events` as any)}
+          >
+            <Ionicons name="calendar-outline" size={22} color={Colors.sage} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push(`/(main)/circles/${id}/planning` as any)}
+          >
+            <Ionicons name="list-outline" size={22} color={Colors.sage} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => shareSpotInvite(id, spotName, session!.user.id)}
+          >
+            <Ionicons name="person-add-outline" size={22} color={Colors.purple} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push(`/(main)/circles/${id}/settings` as any)}
+          >
+            <Ionicons name="ellipsis-horizontal" size={22} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Calls row */}
@@ -99,8 +130,8 @@ export default function CircleDetailScreen() {
           onPress={() => router.push(`/(main)/circles/${id}/lottery` as any)}
           activeOpacity={0.8}
         >
-          <Ionicons name="ticket-outline" size={14} color="#EF4444" />
-          <Text style={styles.featureTextRed}>Lottery</Text>
+          <Ionicons name="repeat-outline" size={14} color="#EF4444" />
+          <Text style={styles.featureTextRed}>Rounds</Text>
           <Ionicons name="chevron-forward" size={13} color="#EF4444" />
         </TouchableOpacity>
       </View>
@@ -151,7 +182,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 60,
+    paddingTop: 12, /* overridden inline with insets */
     paddingBottom: 12,
   },
   backBtn: { padding: 4, marginRight: 8 },

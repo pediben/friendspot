@@ -10,7 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/hooks/useAuth";
 import { Colors } from "@/constants/Colors";
 
-export default function CreateLotteryScreen() {
+export default function CreateRoundScreen() {
   const { id: circleId } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuthStore();
 
@@ -53,26 +53,26 @@ export default function CreateLotteryScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>New lottery</Text>
+        <Text style={styles.title}>New round</Text>
         <View style={{ width: 32 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
         <Text style={styles.hint}>
-          🎰 Everyone pays the entry amount. On draw day, one random participant wins the whole pot.
+          🔄 Everyone contributes each round. On payout day, one member receives the full pot. Take turns until everyone has had their round.
         </Text>
 
-        <Text style={styles.label}>Lottery name</Text>
+        <Text style={styles.label}>Round name</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. June Pool, Summer Sandogh"
+          placeholder="e.g. Summer Rounds, Monthly Boost"
           placeholderTextColor={Colors.textFaint}
           value={title}
           onChangeText={setTitle}
           autoFocus
         />
 
-        <Text style={styles.label}>Entry amount (USD)</Text>
+        <Text style={styles.label}>Contribution amount (USD)</Text>
         <TextInput
           style={styles.input}
           placeholder="20.00"
@@ -82,7 +82,7 @@ export default function CreateLotteryScreen() {
           onChangeText={setEntryAmount}
         />
 
-        <Text style={styles.label}>Draw date (YYYY-MM-DD)</Text>
+        <Text style={styles.label}>Payout date (YYYY-MM-DD)</Text>
         <TextInput
           style={styles.input}
           placeholder="2026-07-01"
@@ -108,7 +108,7 @@ export default function CreateLotteryScreen() {
           onPress={handleCreate}
           disabled={loading}
         >
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.createBtnText}>Create lottery</Text>}
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.createBtnText}>Start round</Text>}
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>

@@ -15,13 +15,13 @@ import { Colors } from "@/constants/Colors";
 type Expense = {
   id: string;
   description: string | null;
-  amount: number;
+  amount_cents: number;
   currency: string;
   category: string | null;
   created_at: string;
   paid_by: string;
   payer: { display_name: string };
-  splits: { user_id: string; amount_owed: number; settled: boolean; profile: { display_name: string } }[];
+  splits: { owed_by: string; amount_cents: number; settled: boolean; profile: { display_name: string } }[];
 };
 
 const CATEGORY_ICON: Record<string, string> = {
@@ -42,9 +42,9 @@ export default function ExpensesScreen() {
     const { data, error } = await supabase
       .from("expenses")
       .select(`
-        id, description, amount, currency, category, created_at, paid_by,
+        id, description, amount_cents, currency, category, created_at, paid_by,
         payer:profiles!paid_by(display_name),
-        splits:expense_splits(user_id, amount_owed, settled, profile:profiles!user_id(display_name))
+        splits:expense_splits(owed_by, amount_cents, settled, profile:profiles!owed_by(display_name))
       `)
       .eq("circle_id", circleId)
       .order("created_at", { ascending: false });
@@ -57,30 +57,29 @@ export default function ExpensesScreen() {
 
   useFocusEffect(useCallback(() => { fetchExpenses(); }, [fetchExpenses]));
 
-  // Compute my net balance across all expenses
+  // Compute my net balance across all expenses (amounts in cents → display in dollars)
   const myBalance = expenses.reduce((acc, exp) => {
-    const mySplit = exp.splits.find(s => s.user_id === userId);
-    if (mySplit && !mySplit.settled) acc -= mySplit.amount_owed;
+    const mySplit = exp.splits.find(s => s.owed_by === userId);
+    if (mySplit && !mySplit.settled) acc -= mySplit.amount_cents;
     if (exp.paid_by === userId) {
-      acc += exp.splits.filter(s => s.user_id !== userId && !s.settled)
-        .reduce((sum, s) => sum + s.amount_owed, 0);
+      acc += exp.splits.filter(s => s.owed_by !== userId && !s.settled)
+        .reduce((sum, s) => sum + s.amount_cents, 0);
     }
     return acc;
   }, 0);
 
-  const markSettled = async (expenseId: string, splitUserId: string) => {
+  const markSettled = async (expenseId: string, owedBy: string) => {
     const { error } = await supabase
       .from("expense_splits")
       .update({ settled: true, settled_at: new Date().toISOString() })
       .eq("expense_id", expenseId)
-      .eq("user_id", splitUserId);
+      .eq("owed_by", owedBy);
     if (error) Alert.alert("Error", error.message);
     else fetchExpenses();
   };
 
   const renderExpense = ({ item }: { item: Expense }) => {
     const icon = CATEGORY_ICON[item.category ?? "other"] ?? "💸";
-    const myOwed = item.splits.find(s => s.user_id === userId && !s.settled);
     const iPaid = item.paid_by === userId;
 
     return (
@@ -91,24 +90,24 @@ export default function ExpensesScreen() {
             <Text style={styles.cardTitle}>{item.description ?? "Expense"}</Text>
             <Text style={styles.cardSub}>
               Paid by {iPaid ? "you" : (item.payer as any)?.display_name ?? "someone"} ·{" "}
-              {item.currency} {Number(item.amount).toFixed(2)}
+              {item.currency} {(item.amount_cents / 100).toFixed(2)}
             </Text>
           </View>
         </View>
 
         {item.splits.map(split => {
-          const isMe = split.user_id === userId;
+          const isMe = split.owed_by === userId;
           const name = isMe ? "You" : (split.profile as any)?.display_name ?? "?";
           return (
-            <View key={split.user_id} style={styles.splitRow}>
+            <View key={split.owed_by} style={styles.splitRow}>
               <Text style={styles.splitName}>{name}</Text>
               <Text style={[styles.splitAmt, split.settled && styles.settled]}>
-                {split.settled ? "✓ Settled" : `owes ${item.currency} ${Number(split.amount_owed).toFixed(2)}`}
+                {split.settled ? "✓ Settled" : `owes ${item.currency} ${(split.amount_cents / 100).toFixed(2)}`}
               </Text>
-              {!split.settled && iPaid && split.user_id !== userId && (
+              {!split.settled && iPaid && split.owed_by !== userId && (
                 <TouchableOpacity
                   style={styles.settleBtn}
-                  onPress={() => markSettled(item.id, split.user_id)}
+                  onPress={() => markSettled(item.id, split.owed_by)}
                 >
                   <Text style={styles.settleBtnText}>Mark settled</Text>
                 </TouchableOpacity>
@@ -144,7 +143,7 @@ export default function ExpensesScreen() {
       <View style={[styles.balanceBanner, { backgroundColor: myBalance >= 0 ? "rgba(74,222,128,0.12)" : "rgba(239,68,68,0.12)" }]}>
         <Text style={styles.balanceLabel}>Your net balance</Text>
         <Text style={[styles.balanceAmount, { color: myBalance >= 0 ? Colors.green : "#EF4444" }]}>
-          {myBalance >= 0 ? `+$${myBalance.toFixed(2)}` : `-$${Math.abs(myBalance).toFixed(2)}`}
+          {myBalance >= 0 ? `+$${(myBalance / 100).toFixed(2)}` : `-$${(Math.abs(myBalance) / 100).toFixed(2)}`}
         </Text>
         <Text style={styles.balanceSub}>{myBalance >= 0 ? "You are owed" : "You owe"}</Text>
       </View>

@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>Friendzone</string>
+    <string>Friendspot</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -27,13 +27,13 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>friendzone</string>
-          <string>com.friendzone.app</string>
+          <string>friendspot</string>
+          <string>com.friendspot.app</string>
         </array>
       </dict>
     </array>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>2</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>NSAppTransportSecurity</key>
@@ -44,15 +44,15 @@
       <true/>
     </dict>
     <key>NSCameraUsageDescription</key>
-    <string>Friendzone uses your camera to capture moments.</string>
+    <string>Friendspot uses your camera to capture moments.</string>
     <key>NSContactsUsageDescription</key>
-    <string>Allow Friendzone to access your contacts to find friends already on the app.</string>
+    <string>Allow Friendspot to access your contacts to find friends already on the app.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Friendzone uses your microphone to record voice notes for your friend circles.</string>
+    <string>Friendspot uses your microphone for voice rooms.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Friendzone accesses your photos to share moments with your circles.</string>
+    <string>Friendspot accesses your photos to share moments with your circles.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>

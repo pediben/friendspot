@@ -1,16 +1,27 @@
+/**
+ * Main tab layout — 6 tabs: Spots · Moments · Live · $ · Messages · Me
+ *
+ * All other screens (join, stories, about, dms/[id], circles/[id]/*, etc.)
+ * live inside the tab stacks but are NOT shown in the tab bar.
+ */
 import { useEffect } from "react";
+import { View } from "react-native";
 import { Tabs, router } from "expo-router";
 import { useAuthStore } from "@/hooks/useAuth";
-import { Colors } from "@/constants/Colors";
+import { useNotifications } from "@/hooks/useNotifications";
 import { Ionicons } from "@expo/vector-icons";
+import { LogoMark } from "@/components/ui/LogoMark";
+
+const ACTIVE   = "#8FA876";   // sage (brand color)
+const INACTIVE = "rgba(255,255,255,0.32)";
+const TAB_BG   = "#0C0D0B";
 
 export default function MainLayout() {
   const { session } = useAuthStore();
+  useNotifications();
 
   useEffect(() => {
-    if (!session) {
-      router.replace("/(auth)");
-    }
+    if (!session) router.replace("/(auth)");
   }, [session]);
 
   return (
@@ -18,25 +29,33 @@ export default function MainLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: "#0F0F1A",
-          borderTopColor: "rgba(255,255,255,0.08)",
+          backgroundColor: TAB_BG,
+          borderTopColor: "rgba(255,255,255,0.07)",
+          borderTopWidth: 1,
           paddingBottom: 8,
-          height: 80,
+          paddingTop: 8,
+          height: 64,
         },
-        tabBarActiveTintColor: Colors.purple,
-        tabBarInactiveTintColor: "rgba(255,255,255,0.35)",
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+        tabBarActiveTintColor:   ACTIVE,
+        tabBarInactiveTintColor: INACTIVE,
+        tabBarLabelStyle: { fontSize: 9, fontWeight: "700", letterSpacing: 0, marginTop: -4 },
+        tabBarItemStyle: { gap: 2 },
       }}
     >
+      {/* ── Tab 1: Spots ── */}
       <Tabs.Screen
         name="circles"
         options={{
-          title: "Squads",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="ellipse-outline" size={size} color={color} />
+          title: "Friendspots",
+          tabBarIcon: ({ focused }) => (
+            <View style={{ opacity: focused ? 1 : 0.35 }}>
+              <LogoMark size={26} />
+            </View>
           ),
         }}
       />
+
+      {/* ── Tab 2: Moments ── */}
       <Tabs.Screen
         name="moments"
         options={{
@@ -46,26 +65,37 @@ export default function MainLayout() {
           ),
         }}
       />
+
+      {/* ── Tab 3: Live (Room + Private) ── */}
       <Tabs.Screen
-        name="dms"
+        name="live"
         options={{
-          title: "DMs",
-          tabBarButton: () => null,
+          title: "Live",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubble-ellipses-outline" size={size} color={color} />
+            <Ionicons name="mic-outline" size={size} color={color} />
           ),
         }}
       />
+
+      {/* ── Tab 4: Money ($) ── */}
       <Tabs.Screen
-        name="profile"
+        name="finance"
         options={{
-          title: "Profile",
-          tabBarButton: () => null,
+          title: "Wallet",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-circle-outline" size={size} color={color} />
+            <Ionicons name="wallet-outline" size={size} color={color} />
           ),
         }}
       />
+
+      {/* ── Messages + Me: accessible via top-right header icons ── */}
+      <Tabs.Screen name="dms"     options={{ tabBarButton: () => null }} />
+      <Tabs.Screen name="profile" options={{ tabBarButton: () => null }} />
+
+      {/* ── Hidden routes (no tab bar entry) ── */}
+      <Tabs.Screen name="join"    options={{ tabBarButton: () => null }} />
+      <Tabs.Screen name="stories" options={{ tabBarButton: () => null }} />
+      <Tabs.Screen name="about"   options={{ tabBarButton: () => null }} />
     </Tabs>
   );
 }

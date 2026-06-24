@@ -23,7 +23,7 @@ export function useMoments() {
       return;
     }
 
-    setMoments((data ?? []) as MomentWithCircle[]);
+    setMoments((data ?? []) as unknown as MomentWithCircle[]);
     setLoading(false);
   }, [userId]);
 

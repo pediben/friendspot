@@ -47,7 +47,7 @@ export const supabase = createClient<Database, "friendspot">(SUPABASE_URL, SUPAB
 
 /** Returns the signed URL for a private Storage object */
 export async function getSignedUrl(
-  bucket: "voice-notes" | "photos" | "avatars",
+  bucket: "voice-notes" | "photos" | "avatars" | "stories",
   path: string,
   expiresIn = 3600
 ): Promise<string | null> {
@@ -63,7 +63,7 @@ export async function getSignedUrl(
 
 /** Upload a file to Supabase Storage, returns the storage path */
 export async function uploadFile(
-  bucket: "voice-notes" | "photos" | "avatars",
+  bucket: "voice-notes" | "photos" | "avatars" | "stories",
   userId: string,
   fileName: string,
   blob: Blob,

@@ -16,6 +16,7 @@ import {
 import * as Contacts from "expo-contacts";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import { useAuthStore } from "@/hooks/useAuth";
 import { Profile } from "@/types/database";
 import { Avatar } from "@/components/ui/Avatar";
 import { Colors } from "@/constants/Colors";
@@ -26,6 +27,7 @@ interface ContactMatch {
 }
 
 export default function ContactsScreen() {
+  const { session } = useAuthStore();
   const [matches, setMatches] = useState<ContactMatch[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,14 +46,34 @@ export default function ContactsScreen() {
       fields: [Contacts.Fields.PhoneNumbers],
     });
 
-    // Extract all phone numbers
+    // Extract all phone numbers, normalize to E.164 (+1XXXXXXXXXX for now)
     const phones: string[] = [];
     data.forEach((c) => {
       c.phoneNumbers?.forEach((p) => {
-        const normalized = p.number?.replace(/\D/g, "") ?? "";
-        if (normalized.length >= 10) phones.push(normalized);
+        const digits = p.number?.replace(/\D/g, "") ?? "";
+        if (digits.length >= 10) {
+          // Simplistic E.164: prepend +1 for 10-digit US numbers
+          // TODO: use libphonenumber for international
+          const e164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
+          phones.push(e164);
+        }
       });
     });
+
+    // Save to contact_imports so we can notify this user when their contacts join
+    if (session?.user.id && phones.length > 0) {
+      const uniquePhones = [...new Set(phones)];
+      const rows = uniquePhones.map((phone) => ({
+        owner_id:   session.user.id,
+        phone_hash: phone, // stored as E.164 string
+      }));
+      for (let i = 0; i < rows.length; i += 500) {
+        await supabase
+          .schema("friendspot")
+          .from("contact_imports")
+          .upsert(rows.slice(i, i + 500), { onConflict: "owner_id,phone_hash" });
+      }
+    }
 
     // Batch query Supabase for matches
     const { data: profiles } = await supabase
@@ -75,11 +97,11 @@ export default function ContactsScreen() {
 
   const invite = async (contact: Contacts.Contact) => {
     await Share.share({
-      message: `Hey! Join me on Friendzone — the private app for real friend groups. Download: https://friendzone.app/invite`,
+      message: `Hey! Join me on Friendspot — the private app for real friend groups. No ads, no strangers. Download: https://friendspot.app/download`,
     });
   };
 
-  const skip = () => router.replace("/(main)/circles");
+  const skip = () => router.replace("/(main)/circles" as any);
 
   if (loading) {
     return (
@@ -97,7 +119,7 @@ export default function ContactsScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Who's already here?</Text>
       <Text style={styles.subtitle}>
-        {onApp.length} of your contacts are on Friendzone.
+        {onApp.length} of your contacts are on Friendspot.
       </Text>
 
       <FlatList
@@ -113,7 +135,7 @@ export default function ContactsScreen() {
             <View style={styles.info}>
               <Text style={styles.name}>{item.contact.name}</Text>
               {item.profile ? (
-                <Text style={styles.badge}>✅ On Friendzone</Text>
+                <Text style={styles.badge}>✅ On Friendspot</Text>
               ) : (
                 <Text style={styles.phone}>
                   {item.contact.phoneNumbers?.[0]?.number}
@@ -141,7 +163,7 @@ export default function ContactsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0F0F1A" },
+  container: { flex: 1, backgroundColor: "#0C0D0B" },
   center: { alignItems: "center", justifyContent: "center" },
   loadingText: { color: "rgba(255,255,255,0.5)", marginTop: 16, fontSize: 16 },
   title: {

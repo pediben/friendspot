@@ -55,9 +55,9 @@ export async function encryptBytes(
   const key = await importKey(hexKey);
   const iv = await Crypto.getRandomBytesAsync(12);
   const ciphertext = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
+    { name: "AES-GCM", iv: iv as unknown as BufferSource },
     key,
-    plaintext
+    plaintext as unknown as BufferSource
   );
   return {
     iv: Buffer.from(iv).toString("base64"),
@@ -102,6 +102,6 @@ export async function decryptBlobToUri(
   const text = await blob.text();
   const payload: EncryptedPayload = JSON.parse(text);
   const bytes = await decryptBytes(payload, hexKey);
-  const decryptedBlob = new Blob([bytes], { type: mimeType });
+  const decryptedBlob = new Blob([bytes as unknown as BlobPart], { type: mimeType });
   return URL.createObjectURL(decryptedBlob);
 }

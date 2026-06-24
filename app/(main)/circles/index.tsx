@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,73 +9,129 @@ import {
   Modal,
   TextInput,
   Alert,
+  Image,
   ScrollView,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useCircles } from "@/hooks/useCircles";
 import { CircleWithMembers } from "@/types/database";
 import { Avatar } from "@/components/ui/Avatar";
 import { Ionicons } from "@expo/vector-icons";
+import { LogoMark } from "@/components/ui/LogoMark";
+import { supabase } from "@/lib/supabase";
 
 // ─── Design tokens ──────────────────────────────────────────────
-const BG        = "#09090F";
-const CARD_BG   = "#111118";
+const BG        = "#0C0D0B";
+const CARD_BG   = "#111310";
 const BORDER    = "rgba(255,255,255,0.07)";
-const TEXT      = "#FFFFFF";
-const MUTED     = "rgba(255,255,255,0.4)";
-const FAINT     = "rgba(255,255,255,0.18)";
-const GOLD      = "#C9A84C";
-const GOLD_DIM  = "rgba(201,168,76,0.12)";
-const SHEET_BG  = "#0D0D16";
+const TEXT      = "#F4F5F0";
+const MUTED     = "rgba(244,245,240,0.4)";
+const FAINT     = "rgba(244,245,240,0.18)";
+const SAGE      = "#8FA876";
+const SAGE_DIM  = "rgba(143,168,118,0.12)";
+const SHEET_BG  = "#0E100D";
 
-// ─── Squad accent palette ────────────────────────────────────────
+// ─── Fallback palette (used only when no cover photo) ────────────
 const PALETTE = [
-  { id: "gold",    hex: "#C9A84C", dim: "rgba(201,168,76,0.18)"   },
-  { id: "violet",  hex: "#8B5CF6", dim: "rgba(139,92,246,0.18)"   },
-  { id: "teal",    hex: "#14B8A6", dim: "rgba(20,184,166,0.18)"   },
-  { id: "rose",    hex: "#F43F5E", dim: "rgba(244,63,94,0.18)"    },
-  { id: "blue",    hex: "#3B82F6", dim: "rgba(59,130,246,0.18)"   },
-  { id: "emerald", hex: "#10B981", dim: "rgba(16,185,129,0.18)"   },
+  { id: "sage",   hex: "#8FA876", dim: "rgba(143,168,118,0.18)" },
+  { id: "violet", hex: "#8B5CF6", dim: "rgba(139,92,246,0.18)"  },
+  { id: "teal",   hex: "#14B8A6", dim: "rgba(20,184,166,0.18)"  },
+  { id: "rose",   hex: "#F43F5E", dim: "rgba(244,63,94,0.18)"   },
+  { id: "blue",   hex: "#3B82F6", dim: "rgba(59,130,246,0.18)"  },
+  { id: "gold",   hex: "#C9A84C", dim: "rgba(201,168,76,0.18)"  },
 ];
-
 function getColor(colorId: string) {
   return PALETTE.find(p => p.id === colorId) ?? PALETTE[0];
 }
-
 function getInitials(name: string) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .map(w => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  return name.trim().split(/\s+/).map(w => w[0]).join("").toUpperCase().slice(0, 2);
+}
+// Detect if icon field is a photo URL vs a colorId
+function isCoverUrl(val: string | null): val is string {
+  return !!val && val.startsWith("http");
 }
 
-// icon field stores colorId (e.g. "gold"); legacy emoji falls back to gold
-function isColorId(val: string | null) {
-  return val ? PALETTE.some(p => p.id === val) : false;
+// ─── Upload helper ───────────────────────────────────────────────
+async function uploadCoverPhoto(localUri: string, circleId: string): Promise<string> {
+  const ext   = localUri.split(".").pop()?.toLowerCase() ?? "jpg";
+  const mime  = ext === "png" ? "image/png" : "image/jpeg";
+  const path  = `${circleId}/cover.${ext}`;
+
+  const response = await fetch(localUri);
+  const blob     = await response.blob();
+
+  const { error } = await supabase.storage
+    .from("circle-covers")
+    .upload(path, blob, { contentType: mime, upsert: true });
+
+  if (error) throw error;
+
+  const { data } = supabase.storage.from("circle-covers").getPublicUrl(path);
+  return data.publicUrl;
 }
 
 // ─── Component ──────────────────────────────────────────────────
-export default function CirclesHomeScreen() {
+export default function SpotsHomeScreen() {
   const { circles, loading, createCircle } = useCircles();
-  const [showCreate, setShowCreate]   = useState(false);
-  const [newName, setNewName]         = useState("");
-  const [newDesc, setNewDesc]         = useState("");
-  const [colorId, setColorId]         = useState("gold");
-  const [creating, setCreating]       = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName]       = useState("");
+  const [newDesc, setNewDesc]       = useState("");
+  const [coverUri, setCoverUri]     = useState<string | null>(null);
+  const [creating, setCreating]     = useState(false);
+  const [showHint, setShowHint]     = useState(true);
 
-  const resetForm = () => { setNewName(""); setNewDesc(""); setColorId("gold"); };
+  useEffect(() => {
+    AsyncStorage.getItem("spots_hint_dismissed").then(val => {
+      if (val) setShowHint(false);
+    });
+  }, []);
+
+  const dismissHint = () => {
+    setShowHint(false);
+    AsyncStorage.setItem("spots_hint_dismissed", "1");
+  };
+
+  const resetForm = () => { setNewName(""); setNewDesc(""); setCoverUri(null); };
+
+  const pickPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Allow photo library access to add a cover photo.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setCoverUri(result.assets[0].uri);
+    }
+  };
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
     setCreating(true);
     try {
-      const circle = await createCircle(newName.trim(), colorId);
+      // Create circle first (icon defaults to "sage" colorId as placeholder)
+      const circle = await createCircle(newName.trim(), "sage");
+      if (!circle) throw new Error("Failed to create spot");
+
+      // If user picked a cover photo, upload it and update the icon field
+      if (coverUri) {
+        const url = await uploadCoverPhoto(coverUri, circle.id);
+        await supabase
+          .from("circles")
+          .update({ icon: url })
+          .eq("id", circle.id);
+      }
+
       setShowCreate(false);
       resetForm();
-      if (circle) router.push(`/(main)/circles/${circle.id}`);
+      router.push(`/(main)/circles/${circle.id}`);
     } catch (e: any) {
       Alert.alert("Error", e.message);
     } finally {
@@ -84,8 +140,8 @@ export default function CirclesHomeScreen() {
   };
 
   const renderCircle = ({ item }: { item: CircleWithMembers }) => {
-    const colorKey = isColorId(item.icon) ? item.icon! : "gold";
-    const c = getColor(colorKey);
+    const hasPhoto = isCoverUrl(item.icon);
+    const c        = getColor(hasPhoto ? "sage" : (item.icon ?? "sage"));
     const initials = getInitials(item.name);
 
     return (
@@ -94,10 +150,14 @@ export default function CirclesHomeScreen() {
         onPress={() => router.push(`/(main)/circles/${item.id}`)}
         activeOpacity={0.65}
       >
-        {/* Colored monogram */}
-        <View style={[styles.monogram, { backgroundColor: c.dim, borderColor: c.hex + "33" }]}>
-          <Text style={[styles.monogramText, { color: c.hex }]}>{initials}</Text>
-        </View>
+        {/* Cover photo or colored monogram */}
+        {hasPhoto ? (
+          <Image source={{ uri: item.icon! }} style={styles.coverThumb} />
+        ) : (
+          <View style={[styles.monogram, { backgroundColor: c.dim, borderColor: c.hex + "33" }]}>
+            <Text style={[styles.monogramText, { color: c.hex }]}>{initials}</Text>
+          </View>
+        )}
 
         {/* Info */}
         <View style={styles.cardBody}>
@@ -128,42 +188,102 @@ export default function CirclesHomeScreen() {
       {/* ── Header ── */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.heading}>Squads</Text>
+          <View style={styles.wordmark}>
+            <LogoMark size={22} />
+            <Text style={styles.heading}>Friendspot</Text>
+          </View>
           {!loading && (
             <Text style={styles.subLabel}>
               {circles.length === 0
-                ? "No squads yet"
-                : `${circles.length} ${circles.length === 1 ? "squad" : "squads"}`}
+                ? "No spots yet"
+                : `${circles.length} ${circles.length === 1 ? "spot" : "spots"}`}
             </Text>
           )}
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.glassBtn} onPress={() => router.push("/(main)/dms")}>
-            <Ionicons name="chatbubble-ellipses-outline" size={19} color={MUTED} />
+          <TouchableOpacity style={styles.glassBtn} onPress={() => router.push("/(main)/dms" as any)}>
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color="rgba(244,245,240,0.7)" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.glassBtn} onPress={() => router.push("/(main)/profile")}>
-            <Ionicons name="person-outline" size={19} color={MUTED} />
+          <TouchableOpacity style={styles.glassBtn} onPress={() => router.push("/(main)/profile" as any)}>
+            <Ionicons name="person-circle-outline" size={20} color="rgba(244,245,240,0.7)" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.goldBtn} onPress={() => setShowCreate(true)}>
+          <TouchableOpacity style={styles.sageBtn} onPress={() => setShowCreate(true)}>
             <Ionicons name="add" size={20} color={BG} />
           </TouchableOpacity>
         </View>
       </View>
 
+      {/* ── "What's a Spot?" hint banner ── */}
+      {showHint && (
+        <TouchableOpacity style={styles.hintBanner} onPress={dismissHint} activeOpacity={0.8}>
+          <Ionicons name="information-circle-outline" size={18} color={SAGE} />
+          <Text style={styles.hintText}>
+            A Friendspot is your private group — for your friends, family, or crew.
+          </Text>
+          <Text style={styles.hintClose}>✕</Text>
+        </TouchableOpacity>
+      )}
+
       {/* ── Content ── */}
       {loading ? (
-        <ActivityIndicator color={GOLD} style={{ marginTop: 80 }} />
+        <ActivityIndicator color={SAGE} style={{ marginTop: 80 }} />
       ) : circles.length === 0 ? (
-        <View style={styles.empty}>
-          <View style={styles.emptyRing}>
-            <Ionicons name="people-outline" size={34} color={GOLD} />
+        <ScrollView contentContainerStyle={styles.emptyScroll} showsVerticalScrollIndicator={false}>
+          <Text style={styles.emptyTitle}>Your groups live here</Text>
+          <Text style={styles.emptyBody}>
+            Create a Friendspot for any group — friends, family, a trip, or your crew.
+          </Text>
+
+          {/* Demo preview */}
+          <View style={styles.demoSection}>
+            <Text style={styles.demoLabel}>PREVIEW</Text>
+
+            {/* Demo card 1 */}
+            <View style={[styles.card, styles.demoCard]}>
+              <View style={[styles.monogram, { backgroundColor: "rgba(143,168,118,0.15)", borderColor: "rgba(143,168,118,0.2)" }]}>
+                <Text style={[styles.monogramText, { color: SAGE }]}>FM</Text>
+              </View>
+              <View style={styles.cardBody}>
+                <View style={[styles.demoLine, { width: "50%", height: 14, marginBottom: 6 }]} />
+                <View style={[styles.demoLine, { width: "30%", height: 10 }]} />
+              </View>
+              <View style={styles.cardRight}>
+                <View style={styles.avatarStack}>
+                  {[0,1,2].map(i => (
+                    <View key={i} style={[styles.avatarWrap, { right: i * 14 }]}>
+                      <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.08)" }} />
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            {/* Demo card 2 */}
+            <View style={[styles.card, styles.demoCard]}>
+              <View style={[styles.monogram, { backgroundColor: "rgba(139,92,246,0.12)", borderColor: "rgba(139,92,246,0.2)" }]}>
+                <Text style={[styles.monogramText, { color: "#8B5CF6" }]}>CC</Text>
+              </View>
+              <View style={styles.cardBody}>
+                <View style={[styles.demoLine, { width: "60%", height: 14, marginBottom: 6 }]} />
+                <View style={[styles.demoLine, { width: "25%", height: 10 }]} />
+              </View>
+              <View style={styles.cardRight}>
+                <View style={styles.avatarStack}>
+                  {[0,1].map(i => (
+                    <View key={i} style={[styles.avatarWrap, { right: i * 14 }]}>
+                      <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.08)" }} />
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
           </View>
-          <Text style={styles.emptyTitle}>No squads yet</Text>
-          <Text style={styles.emptyBody}>Create your first squad and bring your people together.</Text>
+
           <TouchableOpacity style={styles.emptyBtn} onPress={() => setShowCreate(true)}>
-            <Text style={styles.emptyBtnText}>Create a Squad</Text>
+            <Ionicons name="add" size={18} color={BG} style={{ marginRight: 6 }} />
+            <Text style={styles.emptyBtnText}>Create your first Friendspot</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       ) : (
         <FlatList
           data={circles}
@@ -181,46 +301,36 @@ export default function CirclesHomeScreen() {
           <View style={styles.sheet}>
             <View style={styles.sheetHandle} />
 
-            <Text style={styles.sheetTitle}>New Squad</Text>
-            <Text style={styles.sheetSub}>Give your squad a name and pick a color.</Text>
-
-            {/* Color palette */}
-            <Text style={styles.fieldLabel}>COLOR</Text>
-            <View style={styles.palette}>
-              {PALETTE.map(p => (
-                <TouchableOpacity
-                  key={p.id}
-                  onPress={() => setColorId(p.id)}
-                  style={[
-                    styles.swatch,
-                    { backgroundColor: p.hex },
-                    colorId === p.id && styles.swatchActive,
-                  ]}
-                >
-                  {colorId === p.id && (
-                    <Ionicons name="checkmark" size={14} color="#fff" />
-                  )}
-                </TouchableOpacity>
-              ))}
+            <View style={styles.sheetLogoRow}>
+              <LogoMark size={32} />
+              <Text style={styles.sheetTitle}>New Group</Text>
             </View>
+            <Text style={styles.sheetSub}>Name your friend group and add a photo so everyone recognizes it.</Text>
 
-            {/* Preview */}
-            {newName.length > 0 && (
-              <View style={styles.preview}>
-                <View style={[styles.previewMonogram, { backgroundColor: getColor(colorId).dim, borderColor: getColor(colorId).hex + "44" }]}>
-                  <Text style={[styles.previewInitials, { color: getColor(colorId).hex }]}>
-                    {getInitials(newName)}
-                  </Text>
+            {/* ── Cover photo picker ── */}
+            <Text style={styles.fieldLabel}>GROUP PHOTO <Text style={styles.optional}>(optional)</Text></Text>
+            <TouchableOpacity style={styles.photoPickerArea} onPress={pickPhoto} activeOpacity={0.75}>
+              {coverUri ? (
+                <>
+                  <Image source={{ uri: coverUri }} style={styles.photoPreview} />
+                  <View style={styles.photoEditBadge}>
+                    <Ionicons name="pencil" size={12} color="#fff" />
+                  </View>
+                </>
+              ) : (
+                <View style={styles.photoPlaceholder}>
+                  <Ionicons name="camera-outline" size={28} color={MUTED} />
+                  <Text style={styles.photoPlaceholderText}>Upload a photo of you and your friends</Text>
+                  <Text style={styles.photoPlaceholderHint}>Tap to choose from library</Text>
                 </View>
-                <Text style={styles.previewName}>{newName}</Text>
-              </View>
-            )}
+              )}
+            </TouchableOpacity>
 
             {/* Name */}
-            <Text style={styles.fieldLabel}>SQUAD NAME</Text>
+            <Text style={styles.fieldLabel}>GROUP NAME</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. Fam, College Crew, Work Gang"
+              placeholder="e.g. Fam, College Crew, Work Gang, Road Trip"
               placeholderTextColor={FAINT}
               value={newName}
               onChangeText={setNewName}
@@ -233,7 +343,7 @@ export default function CirclesHomeScreen() {
             <Text style={styles.fieldLabel}>DESCRIPTION <Text style={styles.optional}>(optional)</Text></Text>
             <TextInput
               style={[styles.input, styles.inputMulti]}
-              placeholder="What's this squad about?"
+              placeholder="What's this spot about?"
               placeholderTextColor={FAINT}
               value={newDesc}
               onChangeText={setNewDesc}
@@ -248,13 +358,13 @@ export default function CirclesHomeScreen() {
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.createBtn, { backgroundColor: getColor(colorId).hex }, (!newName.trim() || creating) && { opacity: 0.5 }]}
+                style={[styles.createBtn, (!newName.trim() || creating) && { opacity: 0.5 }]}
                 onPress={handleCreate}
                 disabled={!newName.trim() || creating}
               >
                 {creating
                   ? <ActivityIndicator color={BG} size="small" />
-                  : <Text style={styles.createText}>Create Squad</Text>
+                  : <Text style={styles.createText}>Create Friendspot</Text>
                 }
               </TouchableOpacity>
             </View>
@@ -278,18 +388,11 @@ const styles = StyleSheet.create({
     paddingTop: 68,
     paddingBottom: 24,
   },
-  heading: {
-    fontSize: 36,
-    fontWeight: "800",
-    color: TEXT,
-    letterSpacing: -0.5,
-  },
+  wordmark: { flexDirection: "row", alignItems: "center", gap: 8 },
+  heading: { fontSize: 26, fontWeight: "800", color: TEXT, letterSpacing: -0.5 },
   subLabel: {
-    fontSize: 11,
-    color: FAINT,
-    marginTop: 5,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
+    fontSize: 11, color: FAINT,
+    marginTop: 5, letterSpacing: 1.2, textTransform: "uppercase",
   },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6 },
   glassBtn: {
@@ -298,10 +401,37 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: BORDER,
     alignItems: "center", justifyContent: "center",
   },
-  goldBtn: {
+  sageBtn: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: GOLD,
+    backgroundColor: SAGE,
     alignItems: "center", justifyContent: "center",
+  },
+
+  // Hint banner — standardized across all tabs
+  hintBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    backgroundColor: "rgba(143,168,118,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(143,168,118,0.25)",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    minHeight: 64,
+  },
+  hintText: {
+    flex: 1,
+    fontSize: 13,
+    color: MUTED,
+    lineHeight: 19,
+  },
+  hintClose: {
+    color: "rgba(255,255,255,0.45)",
+    fontSize: 18,
+    lineHeight: 18,
   },
 
   // List
@@ -319,6 +449,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
+  coverThumb: {
+    width: 50, height: 50, borderRadius: 14,
+    marginRight: 14,
+  },
   monogram: {
     width: 50, height: 50, borderRadius: 14,
     alignItems: "center", justifyContent: "center",
@@ -332,20 +466,22 @@ const styles = StyleSheet.create({
   avatarStack: { flexDirection: "row-reverse", width: 52, height: 24, position: "relative" },
   avatarWrap: { position: "absolute" },
 
-  // Empty
-  empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 48 },
-  emptyRing: {
-    width: 84, height: 84, borderRadius: 42,
-    backgroundColor: GOLD_DIM,
-    borderWidth: 1, borderColor: "rgba(201,168,76,0.2)",
-    alignItems: "center", justifyContent: "center",
-    marginBottom: 28,
-  },
-  emptyTitle: { fontSize: 22, fontWeight: "700", color: TEXT, marginBottom: 10, letterSpacing: -0.2 },
-  emptyBody: { fontSize: 14, color: MUTED, textAlign: "center", lineHeight: 22 },
+  // Empty state
+  emptyScroll: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 120, alignItems: "center" },
+  emptyTitle: { fontSize: 22, fontWeight: "700", color: TEXT, marginBottom: 10, letterSpacing: -0.2, textAlign: "center" },
+  emptyBody: { fontSize: 14, color: MUTED, textAlign: "center", lineHeight: 22, marginBottom: 28 },
+
+  // Demo cards
+  demoSection: { width: "100%", marginBottom: 28 },
+  demoLabel: { fontSize: 10, fontWeight: "700", color: "rgba(255,255,255,0.2)", letterSpacing: 1.4, marginBottom: 12 },
+  demoCard: { opacity: 0.55 },
+  demoLine: { borderRadius: 7, backgroundColor: "rgba(255,255,255,0.15)" },
+
   emptyBtn: {
-    marginTop: 32, backgroundColor: GOLD,
-    paddingHorizontal: 40, paddingVertical: 15, borderRadius: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: SAGE,
+    paddingHorizontal: 32, paddingVertical: 15, borderRadius: 40,
   },
   emptyBtnText: { color: BG, fontSize: 15, fontWeight: "700", letterSpacing: 0.3 },
 
@@ -362,38 +498,46 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.12)",
     alignSelf: "center", marginBottom: 28,
   },
-  sheetTitle: { fontSize: 24, fontWeight: "800", color: TEXT, letterSpacing: -0.3, marginBottom: 6 },
+  sheetLogoRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 },
+  sheetTitle: { fontSize: 24, fontWeight: "800", color: TEXT, letterSpacing: -0.3 },
   sheetSub: { fontSize: 13, color: MUTED, marginBottom: 28 },
 
   // Form
   fieldLabel: { fontSize: 10, fontWeight: "700", color: FAINT, letterSpacing: 1.4, marginBottom: 12 },
   optional: { fontWeight: "400", color: FAINT },
 
-  palette: { flexDirection: "row", gap: 12, marginBottom: 24 },
-  swatch: {
-    width: 34, height: 34, borderRadius: 17,
+  // Photo picker
+  photoPickerArea: {
+    width: "100%",
+    height: 140,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderStyle: "dashed",
+    marginBottom: 24,
+    overflow: "hidden",
+    position: "relative",
+  },
+  photoPreview: { width: "100%", height: "100%" },
+  photoEditBadge: {
+    position: "absolute", bottom: 8, right: 8,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    width: 26, height: 26, borderRadius: 13,
     alignItems: "center", justifyContent: "center",
   },
-  swatchActive: {
-    shadowColor: "#fff",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
+  photoPlaceholder: {
+    flex: 1,
+    alignItems: "center", justifyContent: "center",
+    gap: 6,
+    backgroundColor: "rgba(255,255,255,0.03)",
+    padding: 16,
   },
-
-  preview: {
-    flexDirection: "row", alignItems: "center", gap: 12,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderRadius: 14, padding: 12,
-    marginBottom: 24, borderWidth: 1, borderColor: BORDER,
+  photoPlaceholderText: {
+    fontSize: 13, color: MUTED, textAlign: "center", lineHeight: 18,
   },
-  previewMonogram: {
-    width: 40, height: 40, borderRadius: 11,
-    alignItems: "center", justifyContent: "center", borderWidth: 1,
+  photoPlaceholderHint: {
+    fontSize: 11, color: FAINT, textAlign: "center",
   },
-  previewInitials: { fontSize: 16, fontWeight: "800", letterSpacing: 0.5 },
-  previewName: { fontSize: 15, fontWeight: "700", color: TEXT },
 
   input: {
     backgroundColor: "rgba(255,255,255,0.05)",
@@ -412,7 +556,8 @@ const styles = StyleSheet.create({
   },
   cancelText: { color: MUTED, fontSize: 15 },
   createBtn: {
-    flex: 2, paddingVertical: 15, borderRadius: 40, alignItems: "center",
+    flex: 2, paddingVertical: 15, borderRadius: 40,
+    alignItems: "center", backgroundColor: SAGE,
   },
   createText: { color: "#000", fontSize: 15, fontWeight: "700", letterSpacing: 0.2 },
 });

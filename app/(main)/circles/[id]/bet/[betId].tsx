@@ -71,7 +71,7 @@ export default function BetDetailScreen() {
         .single(),
       supabase.from("profiles").select("coins").eq("id", userId).single(),
     ]);
-    if (betResult.data) setBet(betResult.data as BetDetail);
+    if (betResult.data) setBet(betResult.data as unknown as BetDetail);
     if (profileResult.data) setCoins(profileResult.data.coins);
     setLoading(false);
   }, [betId, userId]);

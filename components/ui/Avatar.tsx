@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { View, Text, Image, StyleSheet } from "react-native";
 import { Colors } from "@/constants/Colors";
 
@@ -8,6 +9,8 @@ interface AvatarProps {
 }
 
 export function Avatar({ uri, name, size = 40 }: AvatarProps) {
+  const [imgError, setImgError] = useState(false);
+
   const initials = name
     .split(" ")
     .map((w) => w[0])
@@ -15,11 +18,12 @@ export function Avatar({ uri, name, size = 40 }: AvatarProps) {
     .slice(0, 2)
     .toUpperCase();
 
-  if (uri) {
+  if (uri && !imgError) {
     return (
       <Image
         source={{ uri }}
         style={[styles.img, { width: size, height: size, borderRadius: size / 2 }]}
+        onError={() => setImgError(true)}
       />
     );
   }

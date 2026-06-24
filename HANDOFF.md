@@ -1,44 +1,86 @@
 # Friendspot — Dev Handoff
 
-**Date:** June 15, 2026  
-**Status:** Schema upgraded, TypeScript clean. Auth blocked on Twilio. Resend DNS in progress.
+**Date:** June 16, 2026 (updated)
+**Status:** Growth system built — contact notifications, push tokens, Spot invite links.
+
+---
+
+## Naming Changes (June 16) ✅
+
+| Old name | New name | Notes |
+|---|---|---|
+| Circles / Squads | **Spots** | Tab label, home screen, create sheet, detail header |
+| Lottery | **Rounds** | UI text, empty state, button labels — ROSCA framing |
+
+File paths (`/circles/`, `/lottery/`) unchanged (routing still works).
 
 ---
 
 ## What's Working ✅
 
 - Full React Native / Expo SDK 51 project scaffolded
-- App runs on iPhone (Expo Go) — onboarding + phone entry screens visible
-- Supabase project wired up (using Deevan.app project, `friendspot` schema)
-- **v2 schema applied** (16 tables, all with RLS enabled):
-  - profiles, contact_imports, blocks, reports
-  - circles, circle_members, circle_invites
-  - circle_messages (voice + text + photo unified), message_reactions
-  - direct_messages
-  - moments, moment_attendees, photos
-  - expenses (integer cents), expense_splits, notifications
-  - SECURITY DEFINER helper functions (no RLS recursion)
-- TypeScript clean (only pre-existing Deno + crypto.ts strict-TS5 errors remain)
-- LiveKit Edge Function deployed to Supabase
-- DOMException / TextDecoder / TextEncoder polyfills in `index.js`
+- App runs on iPhone (Expo Go)
+- Supabase project wired up (`friendspot` schema on Deevan.app project)
+- v2 schema applied (16 tables, all with RLS)
+- TypeScript clean (only pre-existing crypto.ts strict-TS5 errors remain)
+- LiveKit Edge Function deployed
+
+### Features
+
+| Feature | Status | Notes |
+|---|---|---|
+| Spots (groups) | ✅ | Full CRUD, color palette, member avatars |
+| Voice notes | ✅ | Record + play per Spot |
+| Group Room | ✅ | LiveKit drop-in voice per Spot |
+| Private Rooms | ✅ | Passcode + E2EE, Crockford Base32 room codes |
+| Bets | ✅ | Polymarket-style with virtual coins |
+| Rounds (ROSCA) | ✅ | Rotating savings pool — join, contribute, select recipient |
+| Moments | ✅ | Events with secret planning group |
+| Moments photos | ✅ | Signed URL photo grid — upload + display working |
+| Split expenses | ✅ | Per-moment expense splitting with settle flow |
+| Profile photo | ✅ | Set at onboarding, editable via Edit Profile screen |
+| Edit Profile | ✅ | `/(main)/profile/edit` — name, bio, avatar |
+| Stories (24h) | ✅ | DB migration + StoryRing component + viewer + add screen |
+| DMs | 🔧 | List screen exists, thread screen pending |
+
+---
+
+## Stories — New (June 16) ✅
+
+**DB:** `supabase/migrations/20260616_stories.sql`
+- `friendspot.stories` — 24h expiry, RLS: visible to anyone in a shared Spot
+- `friendspot.story_views` — tracks who's seen each story
+
+**Screens:**
+- `app/(main)/stories/[userId].tsx` — viewer with progress bars, tap left/right, hold to pause
+- `app/(main)/stories/add.tsx` — pick photo + optional caption, posts for 24h
+
+**Component:**
+- `components/ui/StoryRing.tsx` — animated gold ring if active stories; pulse animation for unseen
+
+**Entry points:** Profile card `+` button → Add Story; avatar ring → view stories.
+
+**Storage bucket:** Create `stories` bucket in Supabase Dashboard (private).
+
+---
+
+## Rounds (ROSCA) ✅
+
+Renamed from Lottery. Framing: everyone contributes → one person receives the full pot → rotate until all have received.
+
+**DB:** Uses existing `circle_lotteries` + `lottery_entries` tables (no migration needed).
+
+**Screens:** `app/(main)/circles/[id]/lottery.tsx` (path unchanged), `lottery/create.tsx`
 
 ---
 
 ## Blocked ⛔
 
-### 1. Phone auth (Twilio) not configured
-Twilio account was created and verified but the console was down June 14.
-
+### Phone auth (Twilio) not configured
 **To unblock:**
 1. Go to [console.twilio.com](https://console.twilio.com)
-2. Copy **Account SID** (starts with `AC...`)
-3. Reveal and copy **Auth Token**
-4. Get a phone number (free trial number)
-5. In Supabase → Auth → Providers → Phone → enable Twilio → paste credentials
-
-### 2. Resend DNS — `infalert.com` — ✅ RESOLVED
-
-Domain fully verified on Resend (June 15, 2026). All three records verified: DKIM, MX, SPF.
+2. Copy **Account SID** + **Auth Token** + phone number
+3. Supabase → Auth → Providers → Phone → enable Twilio → paste credentials
 
 ---
 
@@ -47,81 +89,130 @@ Domain fully verified on Resend (June 15, 2026). All three records verified: DKI
 | Thing | Value |
 |---|---|
 | Supabase project | `tocfspcqquxdcgoltrxc` (Deevan.app — shared) |
-| Friendspot schema | `friendspot` (isolated from Deevan tables) |
+| Friendspot schema | `friendspot` (isolated) |
+| Supabase URL | `https://tocfspcqquxdcgoltrxc.supabase.co` |
 | App bundle ID | `com.friendzone.app` |
 | Expo SDK | 51 |
-| Project path | `~/Documents/Claude/Projects/friendspot` |
-| LiveKit Edge Fn | Deployed ✅ (needs LIVEKIT_URL/KEY/SECRET secrets set) |
-| Resend domain | `infalert.com` (DNS managed on Namecheap) |
+| LiveKit Edge Fn | Deployed ✅ |
+| Resend domain | `infalert.com` ✅ fully verified |
+
+---
+
+## Growth System — New (June 16) ✅
+
+### "Your contact just joined" notifications
+When a new user signs up, everyone who had their phone number saved in their own contacts automatically gets a push notification: *"[Name] just joined Friendspot 👋 — tap to add them to a Spot."*
+
+**How it works:**
+1. At sign-up, `contacts.tsx` reads the device address book and saves all phone numbers to `contact_imports` (normalized E.164)
+2. The `notify-new-member` Edge Function is triggered by a Supabase DB webhook on `profiles` INSERT
+3. It looks up everyone who has the new user's phone in their `contact_imports`, fetches their push tokens, and sends Expo push notifications
+
+**To activate:** Set up the DB webhook in Supabase Dashboard → Database → Webhooks → profiles INSERT → `notify-new-member` function URL.
+
+### Push notifications
+- `hooks/useNotifications.ts` — requests permission, gets Expo push token, saves to `push_tokens` table
+- Called from root `_layout.tsx` on every app open
+- Handles notification taps (navigates based on `data.type`)
+- Add `EXPO_PUBLIC_EAS_PROJECT_ID` to `.env` once you run `eas build`
+
+### Spot invite links
+- Any Spot member can tap the **person-add icon** (top-right of Spot screen) to generate an invite
+- Generates a 6-char Crockford Base32 code (e.g. `A1B2C3`), stored in `spot_invites` table
+- Share sheet opens with message + link: `https://friendspot.app/join/A1B2C3`
+- Deep link: `friendzone://join/A1B2C3`
+- Join screen (`/(main)/join`): shows Spot name preview, one-tap join
+- Also accessible from Spots home via the enter-outline icon
+
+**DB:** `supabase/migrations/20260616_growth.sql`
+- `push_tokens` — Expo push tokens per device
+- `contact_imports` — address book phone numbers per user
+- `spot_invites` — invite codes with expiry + use limit
+- SECURITY DEFINER `join_spot_by_invite(code)` — atomic join with collision-safe member insert
+
+**Edge Function:** `supabase/functions/notify-new-member/index.ts`
+
+---
+
+## App Reorganization ✅ (June 16)
+
+**4-tab navigation** replacing the old 2-visible-tab layout:
+
+| Tab | Screen | Notes |
+|---|---|---|
+| Spots | `circles/index` | Join (enter icon) + Create (+) in header only — DMs/Profile buttons removed |
+| Moments | `moments/index` | Unchanged |
+| Messages | `dms/index` | Now a real conversation list — was hidden before |
+| Me | `profile/index` | Was hidden before; heading now "Me", no back button |
+
+**DMs fully built:**
+- `hooks/useDirectMessages.ts` — `useConversations()` + `useThread(userId)` with Supabase realtime
+- `app/(main)/dms/index.tsx` — conversation list with last message preview + unread badge
+- `app/(main)/dms/[id].tsx` — full thread screen with text send, auto-scroll, mark-read
+- `lib/timeAgo.ts` — shared relative-time helper
+- `supabase/migrations/20260616_direct_messages.sql` — table + RLS (must share a Spot to DM)
+
+**Apply migration:** paste `20260616_direct_messages.sql` in Supabase Dashboard → SQL Editor.
+
+---
+
+## Moment Templates ✅ (June 16)
+
+Luxury / minimal template picker on the create moment screen. No emojis — uses Ionicons only.
+
+**Templates:** New moment (blank), Birthday, Wedding, Graduation, Baby Shower, Party, Bachelorette/Stag, Trip, Road Trip, Getaway, Beach Day, Dinner, Game Night, Sports — 14 total, all free.
+
+Each template pre-fills: title, secret planning toggle. User can override everything.
+
+**Files:**
+- `lib/momentTemplates.ts` — template definitions (icon, name, color, hint, hasSecret)
+- `app/(main)/moments/create.tsx` — redesigned with horizontal FlatList template picker at top
+
+---
+
+## About Screen + IP Notice ✅ (June 16)
+
+`app/(main)/about.tsx` — new screen accessible from Profile → About Friendspot.
+
+Shows: Friendspot logo mark, tagline, version, **Patent Pending notice**, Privacy Policy / Terms / Contact links, full copyright.
+
+Profile screen updated with "About Friendspot" menu item.
+
+> **Important:** The "Patent Pending" text in-app is a statement of intent. To actually file:
+> 1. Consult a patent attorney (provisional application is ~$1,500–3,000 and buys you 12 months)
+> 2. File a **Provisional Patent Application (PPA)** with the USPTO covering: the ROSCA + social + events combined model, the Spots/Rounds mechanic, and the secret planning group feature
+> 3. Once filed, you can legally say "Patent Pending" and have a 12-month window to file the full utility patent
 
 ---
 
 ## Still Pending
 
 - [ ] Set Twilio credentials in Supabase Auth → Providers → Phone
-- [ ] Set LiveKit secrets in Supabase (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`)
-- [ ] Create Supabase Storage buckets: `voice-notes` and `photos` (private)
-- [ ] Test full auth flow (phone → OTP → profile setup → contacts)
-- [ ] Build circle settings screen (`app/(main)/circles/[id]/settings.tsx`)
-- [ ] Build DM thread screen (`app/(main)/dms/[id].tsx`)
-- [ ] Implement real E2EE key exchange (currently using mock key in useVoiceNotes)
-- [ ] Fill in `EXPO_PUBLIC_LIVEKIT_URL` in `.env` once LiveKit host is known
-- [ ] Fix pre-existing `lib/crypto.ts` TypeScript 5 strict buffer types (does not affect runtime)
----
-
-## Friend Bets — ✅ BUILT (June 15, 2026)
-
-Polymarket-style prediction markets scoped to a circle. Binary, multi-outcome, and pool bets. Virtual coins only (real Stripe stakes future work).
-
-**Screens:**
-- `app/(main)/circles/[id]/bets.tsx` — list (open/resolved), coin balance header, FAB to create
-- `app/(main)/circles/[id]/bet/create.tsx` — 3 bet types, options editor, stake cap, optional close date
-- `app/(main)/circles/[id]/bet/[betId].tsx` — live breakdown with parimutuel odds bars, place bet modal, creator resolve/cancel
-
-**DB** (`supabase/migrations/20260615_friend_bets.sql`)
-- `friendspot.bets`, `friendspot.bet_entries`, `friendspot.coin_transactions`
-- `friendspot.profiles.coins` — running balance (default 1000)
-- SECURITY DEFINER: `place_bet()` (atomic deduct), `resolve_bet()` (parimutuel payout), `cancel_bet()` (full refund)
-
-**Entry point:** amber "Bets →" bar on circle detail screen (below Private rooms bar)
+- [ ] Add `EXPO_PUBLIC_EAS_PROJECT_ID` to `.env` (run `eas init` to get it)
+- [ ] Apply `20260616_fix_profiles.sql` migration via Supabase dashboard (CRITICAL — fixes email signup)
+- [ ] Apply `20260616_growth.sql` migration via Supabase dashboard
+- [ ] Apply `20260616_e2ee.sql` migration via Supabase dashboard (new — E2EE tables)
+- [ ] Deploy `notify-new-member` Edge Function: `supabase functions deploy notify-new-member`
+- [ ] Set up DB webhook: Supabase Dashboard → Database → Webhooks → profiles INSERT → notify-new-member URL
+- [ ] Create `stories` storage bucket in Supabase Dashboard (private)
+- [ ] Set LiveKit secrets (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`)
+- [ ] Create Supabase Storage buckets: `voice-notes`, `photos`, `stories` (all private)
+- [ ] Apply `20260616_stories.sql` migration via Supabase dashboard
+- [ ] File Provisional Patent Application (USPTO) — consult attorney first
+- [ ] Apply `20260616_direct_messages.sql` migration in Supabase Dashboard
+- [x] Build Spot settings screen (`app/(main)/circles/[id]/settings.tsx`) ✅
+- [x] Wire StoryRing into Spot member list + DMs contacts list ✅ (via `hooks/useStoriesStatus.ts`)
+- [x] Implement real E2EE key exchange ✅ — ECDH P-256 + AES-KW, see lib/keyExchange.ts + hooks/useCircleKey.ts + supabase/migrations/20260616_e2ee.sql
+- [x] Auth flow audited + fixed ✅
+  - Fixed: profiles.phone UNIQUE NOT NULL violated by email users → migration 20260616_fix_profiles.sql
+  - Fixed: returning users routed to /contacts instead of /(main)/circles
+  - Fixed: display_name not written to user_metadata (broke new-vs-returning check)
+  - Fixed: "Friendzone" branding in contacts.tsx
+  - Apply migration: 20260616_fix_profiles.sql in Supabase Dashboard → SQL Editor
 
 ---
 
-## Rooms + Private Rooms — ✅ BUILT (June 15, 2026)
-
-Fully implemented. Each circle now has:
-
-**Drop-in room** (`app/(main)/circles/[id]/room.tsx`)
-- Persistent LiveKit voice room for all circle members
-- Audio session configured for loudspeaker, Bluetooth
-- Participant grid with speaking indicators
-- Mute toggle, leave button, 40-second reconnect window
-- Entry: green "Drop-in room" bar on circle detail screen
-
-**Private rooms** (`app/(main)/circles/[id]/private-rooms.tsx` + subdirectory)
-- `private-rooms.tsx` — lists active private rooms, explains Standard vs E2EE
-- `private-room/create.tsx` — creates Standard (6-digit passcode) or Encrypted (word passphrase) room; generates room code automatically
-- `private-room/join.tsx` — 2-step: enter room code → enter passcode/passphrase
-- `private-room/[roomId].tsx` — voice room with LiveKit E2EE via `useRNE2EEManager`
-- Entry: purple "Private rooms" bar below the drop-in room bar
-
-**DB** (`supabase/migrations/20260615_circle_private_rooms.sql`)
-- `circle_private_rooms` table with RLS
-- `circle_private_room_members` table (tracks access grants)
-- SECURITY DEFINER functions: `find_private_room_by_code`, `join_standard_private_room`, `create_standard_private_room`, `grant_encrypted_room_access`
-- bcrypt passode hashing via pgcrypto
-
-**Edge function** (`supabase/functions/livekit-token/` — v5)
-- Now handles both `{ circle_id }` (drop-in) and `{ private_room_id }` (private room)
-- Private room tokens use room name `private-{roomId}`
-
-**Utilities**
-- `lib/passphrase.ts` — 256-word Diceware generator + normalizer
-- `lib/roomCode.ts` — Crockford Base32 room code generator (XXXX-XXXX format)
-
----
-
-## How to Run the App
+## How to Run
 
 ```bash
 cd ~/Documents/Claude/Projects/friendspot
@@ -133,34 +224,17 @@ npx expo start --ios
 ## Key Files
 
 ```
-index.js                          ← entry point + web API polyfills
-app.config.js                     ← Expo config (no @livekit/react-native plugin)
-app/_layout.tsx                   ← root layout + Supabase auth listener
-lib/supabase.ts                   ← Supabase client (schema: "friendspot")
-lib/livekit.ts                    ← LiveKit token fetcher
-lib/crypto.ts                     ← AES-256-GCM E2EE helpers
-hooks/useAuth.ts                  ← Zustand auth store
-hooks/useCircles.ts               ← circles + realtime (friendspot schema)
-hooks/useVoiceNotes.ts            ← circle_messages (kind=voice) + realtime
-hooks/useMoments.ts               ← moments + moment_attendees
-types/database.ts                 ← Supabase TypeScript types (v2 schema)
-supabase/functions/livekit-token/ ← deployed Edge Function
-.env                              ← Supabase URL + anon key (filled in)
+app/(main)/_layout.tsx                     ← tab nav ("Spots", "Moments")
+app/(main)/circles/index.tsx               ← Spots home screen
+app/(main)/circles/[id]/index.tsx          ← Spot detail (voice + feature bars)
+app/(main)/circles/[id]/lottery.tsx        ← Rounds (ROSCA) screen
+app/(main)/circles/[id]/lottery/create.tsx ← Create round
+app/(main)/profile/index.tsx               ← Profile (story ring + add story btn)
+app/(main)/profile/edit.tsx                ← Edit name / bio / avatar ← NEW
+app/(main)/stories/[userId].tsx            ← Story viewer ← NEW
+app/(main)/stories/add.tsx                 ← Add story ← NEW
+app/(main)/moments/[id]/index.tsx          ← Moment detail (album, expenses, planning)
+components/ui/StoryRing.tsx                ← Animated story ring ← NEW
+lib/supabase.ts                            ← Supabase client + helpers
+supabase/migrations/20260616_stories.sql   ← Stories tables ← NEW
 ```
-
----
-
-## Schema Changes (v1 → v2)
-
-| Old table | New table | Key change |
-|---|---|---|
-| `voice_notes` | `circle_messages` | Unified voice/text/photo; `kind` column |
-| `voice_note_reactions` | `message_reactions` | On `circle_messages` |
-| `moment_members` | `moment_attendees` | Added `rsvp_status` |
-| `expenses` | `expenses` | `amount` float → `amount_cents` int |
-| `expense_splits` | `expense_splits` | `user_id`/`amount_owed` → `owed_by`/`amount_cents` |
-| — | `circle_invites` | New: invite flow |
-| — | `direct_messages` | New: 1:1 DMs |
-| — | `notifications` | New: push notification records |
-| — | `contact_imports` | New: hashed contact matching |
-| — | `blocks` / `reports` | New: safety |

@@ -3,13 +3,12 @@ import { supabase, uploadFile } from "@/lib/supabase";
 import { CircleMessageWithSender } from "@/types/database";
 import { useAuthStore } from "./useAuth";
 import { encryptFileUri } from "@/lib/crypto";
-
-// Placeholder: in production, load this from SecureStore per-circle
-const MOCK_KEY = "0000000000000000000000000000000000000000000000000000000000000000";
+import { useCircleKey } from "./useCircleKey";
 
 export function useVoiceNotes(circleId: string) {
   const { session } = useAuthStore();
   const userId = session?.user.id;
+  const { circleKey, error: keyError } = useCircleKey(circleId);
 
   const [notes, setNotes] = useState<CircleMessageWithSender[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,7 +27,7 @@ export function useVoiceNotes(circleId: string) {
       return;
     }
 
-    setNotes((data ?? []) as CircleMessageWithSender[]);
+    setNotes((data ?? []) as unknown as CircleMessageWithSender[]);
     setLoading(false);
   }, [circleId]);
 
@@ -67,8 +66,10 @@ export function useVoiceNotes(circleId: string) {
     if (durationMs < 1000) throw new Error("Voice note too short");
     if (durationMs > 60000) throw new Error("Voice note too long (60s max)");
 
+    if (!circleKey) throw new Error("Circle encryption key not available yet");
+
     // Encrypt before upload
-    const encryptedBlob = await encryptFileUri(uri, MOCK_KEY);
+    const encryptedBlob = await encryptFileUri(uri, circleKey);
     const fileName = `${circleId}/${Date.now()}.enc`;
     const path = await uploadFile("voice-notes", userId, fileName, encryptedBlob, "application/octet-stream");
 
@@ -86,5 +87,5 @@ export function useVoiceNotes(circleId: string) {
     await fetch();
   };
 
-  return { notes, loading, sendVoiceNote };
+  return { notes, loading, sendVoiceNote, keyPending: keyError === "key_pending" };
 }

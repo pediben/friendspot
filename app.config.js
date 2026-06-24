@@ -1,7 +1,8 @@
 export default {
   expo: {
-    name: "Friendzone",
-    slug: "friendzone",
+    name: "Friendspot",
+    slug: "friendspot",
+    owner: "pediben1986",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
@@ -9,29 +10,30 @@ export default {
     splash: {
       image: "./assets/splash.png",
       resizeMode: "contain",
-      backgroundColor: "#0F0F1A",
+      backgroundColor: "#000000",
     },
     ios: {
-      supportsTablet: false,
-      bundleIdentifier: "com.friendzone.app",
-      buildNumber: "1",
+      supportsTablet: true,
+      bundleIdentifier: "com.friendspot.app",
+      buildNumber: "2",
+      associatedDomains: ["applinks:friendspot.online"],
       infoPlist: {
         NSMicrophoneUsageDescription:
-          "Friendzone uses your microphone to record voice notes for your friend circles.",
+          "Friendspot uses your microphone to record voice notes for your friend circles.",
         NSContactsUsageDescription:
-          "Friendzone checks your contacts to show which friends are already on the app. Nothing is uploaded without your permission.",
+          "Friendspot checks your contacts to show which friends are already on the app. Nothing is uploaded without your permission.",
         NSPhotoLibraryUsageDescription:
-          "Friendzone accesses your photos to share moments with your circles.",
+          "Friendspot accesses your photos to share moments with your circles.",
         NSCameraUsageDescription:
-          "Friendzone uses your camera to capture moments.",
+          "Friendspot uses your camera to capture moments.",
       },
     },
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
-        backgroundColor: "#0F0F1A",
+        backgroundColor: "#0C0D0B",
       },
-      package: "com.friendzone.app",
+      package: "com.friendspot.app",
     },
     plugins: [
       "expo-router",
@@ -47,13 +49,18 @@ export default {
         "expo-contacts",
         {
           contactsPermission:
-            "Allow Friendzone to access your contacts to find friends already on the app.",
+            "Allow Friendspot to access your contacts to find friends already on the app.",
         },
       ],
     ],
-    scheme: "friendzone",
+    scheme: "friendspot",
     experiments: {
       typedRoutes: true,
+    },
+    extra: {
+      eas: {
+        projectId: "59303b6b-1e01-43ec-a9c9-4593716bdd2b",
+      },
     },
   },
 };

@@ -69,7 +69,7 @@ export default function CircleBetsScreen() {
         .single(),
     ]);
 
-    setBets((betsResult.data as BetWithCreator[]) ?? []);
+    setBets((betsResult.data as unknown as BetWithCreator[]) ?? []);
     if (profileResult.data) setCoins(profileResult.data.coins);
     setLoading(false);
     setRefreshing(false);

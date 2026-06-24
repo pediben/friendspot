@@ -34,9 +34,9 @@ export default function VerifyScreen() {
       Alert.alert("Wrong code", "Double-check the code and try again.");
       setCode("");
     } else {
-      // New user → profile setup; existing user → contacts import or main
+      // New user → profile setup → contacts; returning user → main app
       const isNew = !data.user?.user_metadata?.display_name;
-      router.replace(isNew ? "/(auth)/profile-setup" : "/(auth)/contacts");
+      router.replace(isNew ? "/(auth)/profile-setup" : "/(main)/circles");
     }
   };
 
@@ -101,7 +101,7 @@ export default function VerifyScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0F0F1A",
+    backgroundColor: "#0C0D0B",
     paddingHorizontal: 32,
     paddingTop: 100,
   },

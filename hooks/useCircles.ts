@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { Circle, CircleWithMembers, Profile } from "@/types/database";
+import { Circle, CircleWithMembers, MemberProfile } from "@/types/database";
 import { useAuthStore } from "./useAuth";
+import { generateCircleKey } from "@/lib/crypto";
+import { wrapCircleKey, getOrCreatePublicKey, setCachedCircleKey } from "@/lib/keyExchange";
 
 export function useCircles() {
   const { session } = useAuthStore();
@@ -9,6 +11,9 @@ export function useCircles() {
 
   const [circles, setCircles] = useState<CircleWithMembers[]>([]);
   const [loading, setLoading] = useState(true);
+  // Unique channel name per hook instance — prevents "cannot add callbacks after subscribe()"
+  // when multiple screens (Live, $, Spots) mount useCircles simultaneously.
+  const [channelName] = useState(() => `circle_members_${Math.random().toString(36).slice(2)}`);
 
   const fetchCircles = useCallback(async () => {
     if (!userId) return;
@@ -35,7 +40,10 @@ export function useCircles() {
 
     const result: CircleWithMembers[] = (data ?? []).map((row: any) => {
       const c = row.circles;
-      const members: Profile[] = c.circle_members.map((m: any) => m.profiles);
+      const members: MemberProfile[] = c.circle_members.map((m: any) => ({
+        ...m.profiles,
+        role: m.role ?? "member",
+      }));
       return { ...c, members, member_count: members.length };
     });
 
@@ -44,10 +52,11 @@ export function useCircles() {
   }, [userId]);
 
   useEffect(() => {
+    if (!userId) return;
     fetchCircles();
 
     const sub = supabase
-      .channel("circle_members")
+      .channel(channelName)
       .on(
         "postgres_changes",
         { event: "*", schema: "friendspot", table: "circle_members" },
@@ -56,20 +65,51 @@ export function useCircles() {
       .subscribe();
 
     return () => { supabase.removeChannel(sub); };
-  }, [fetchCircles]);
+    // Depend on userId so we re-subscribe when the user changes.
+    // fetchCircles is stable as long as userId doesn't change (memoized with userId).
+    // Using channelName (stable per-instance) avoids the "already subscribed" error.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, channelName]);
 
   const createCircle = async (name: string, icon: string) => {
     if (!userId) return null;
 
+    // Force-refresh the JWT before any insert so auth.uid() is never NULL on the server.
+    // In React Native, autoRefreshToken needs help from AppState; this is the belt+suspenders fallback.
+    const { data: { session: freshSession }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !freshSession) throw new Error("Session expired — please sign out and sign back in.");
+
     const { data, error } = await supabase
       .from("circles")
-      .insert({ name, icon, created_by: userId })
+      .insert({ name, icon, created_by: freshSession.user.id })
       .select()
       .single();
 
     if (error) throw error;
+    const circle = data as Circle;
+
+    // Generate a fresh AES-256 circle key and wrap it for the creator
+    try {
+      const circleKeyHex = await generateCircleKey();
+      const myPubKey = await getOrCreatePublicKey();
+      const { encryptedKey, ephemeralPub } = await wrapCircleKey(circleKeyHex, myPubKey);
+
+      await supabase.from("circle_keys").insert({
+        circle_id: circle.id,
+        user_id: userId,
+        encrypted_key: encryptedKey,
+        ephemeral_pub: ephemeralPub,
+      });
+
+      // Cache immediately — no need to unwrap on next open
+      setCachedCircleKey(circle.id, circleKeyHex);
+    } catch (keyErr: any) {
+      // Non-fatal: circle is created; key will be distributed on next open
+      console.warn("[createCircle] Key generation failed:", keyErr.message);
+    }
+
     await fetchCircles();
-    return data as Circle;
+    return circle;
   };
 
   return { circles, loading, refetch: fetchCircles, createCircle };

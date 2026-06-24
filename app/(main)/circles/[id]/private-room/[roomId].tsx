@@ -32,13 +32,22 @@ import {
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  LiveKitRoom,
-  useParticipants,
-  useLocalParticipant,
-  AudioSession,
-  useRNE2EEManager,
-} from "@livekit/react-native";
+// @livekit/react-native uses native modules not available in Expo Go.
+let LiveKitRoom: any = ({ children }: any) => children;
+let useParticipants: any = () => ({ participants: [] });
+let useLocalParticipant: any = () => ({ localParticipant: null, isMicrophoneEnabled: false });
+let AudioSession: any = { startAudioSession: async () => {}, stopAudioSession: async () => {} };
+let useRNE2EEManager: any = () => null;
+try {
+  const lkRN = require("@livekit/react-native");
+  LiveKitRoom = lkRN.LiveKitRoom;
+  useParticipants = lkRN.useParticipants;
+  useLocalParticipant = lkRN.useLocalParticipant;
+  AudioSession = lkRN.AudioSession;
+  useRNE2EEManager = lkRN.useRNE2EEManager;
+} catch {
+  console.warn("@livekit/react-native not available (Expo Go). Voice rooms disabled.");
+}
 import { supabase } from "@/lib/supabase";
 import { getPrivateRoomToken } from "@/lib/livekit";
 import { normalizePassphrase } from "@/lib/passphrase";
@@ -145,7 +154,7 @@ function ConnectedRoom({ onLeave, isEncrypted }: { onLeave: () => void; isEncryp
       )}
 
       <ScrollView contentContainerStyle={styles.grid}>
-        {participants.map((p) => (
+        {(participants as any[]).map((p) => (
           <ParticipantTile
             key={p.identity}
             identity={p.identity}

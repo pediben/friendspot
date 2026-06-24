@@ -17,6 +17,8 @@ export interface Database {
           company: string | null;
           phone: string | null;
           coins: number;
+          venmo_username: string | null;
+          paypal_email: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -30,6 +32,8 @@ export interface Database {
           company?: string | null;
           phone?: string | null;
           coins?: number;
+          venmo_username?: string | null;
+          paypal_email?: string | null;
         };
         Update: {
           username?: string | null;
@@ -40,6 +44,8 @@ export interface Database {
           company?: string | null;
           phone?: string | null;
           coins?: number;
+          venmo_username?: string | null;
+          paypal_email?: string | null;
         };
         Relationships: [];
       };
@@ -259,7 +265,8 @@ export interface Database {
       expenses: {
         Row: {
           id: string;
-          moment_id: string;
+          moment_id: string | null;
+          circle_id: string | null;
           paid_by: string;
           amount_cents: number;
           currency: string;
@@ -269,7 +276,8 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          moment_id: string;
+          moment_id?: string | null;
+          circle_id?: string | null;
           paid_by: string;
           amount_cents: number;
           currency?: string;
@@ -436,9 +444,171 @@ export interface Database {
         Update: Record<string, never>;
         Relationships: [];
       };
+      stories: {
+        Row: {
+          id: string;
+          author_id: string;
+          media_url: string;
+          media_type: string;
+          caption: string | null;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          author_id: string;
+          media_url: string;
+          media_type: string;
+          caption?: string | null;
+          expires_at: string;
+        };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      story_views: {
+        Row: { story_id: string; viewer_id: string; viewed_at: string };
+        Insert: { story_id: string; viewer_id: string; viewed_at?: string };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      user_public_keys: {
+        Row: { user_id: string; public_key: string; created_at: string; updated_at: string };
+        Insert: { user_id: string; public_key: string };
+        Update: { public_key?: string };
+        Relationships: [];
+      };
+      circle_keys: {
+        Row: {
+          id: string;
+          circle_id: string;
+          user_id: string;
+          encrypted_key: string;
+          ephemeral_pub: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          circle_id: string;
+          user_id: string;
+          encrypted_key: string;
+          ephemeral_pub: string;
+        };
+        Update: { encrypted_key?: string; ephemeral_pub?: string };
+        Relationships: [];
+      };
+      pending_key_shares: {
+        Row: {
+          id: string;
+          invite_code: string;
+          circle_id: string;
+          wrapped_for_server: string | null;
+          created_at: string;
+          claimed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          invite_code: string;
+          circle_id: string;
+          wrapped_for_server?: string | null;
+        };
+        Update: { claimed_at?: string | null };
+        Relationships: [];
+      };
+      push_tokens: {
+        Row: { id: string; user_id: string; token: string; platform: string; created_at: string };
+        Insert: { id?: string; user_id: string; token: string; platform: string };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      circle_lotteries: {
+        Row: {
+          id: string;
+          circle_id: string;
+          created_by: string;
+          title: string;
+          entry_amount: number;
+          currency: string;
+          draw_date: string;
+          status: "open" | "drawn" | "cancelled";
+          winner_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          circle_id: string;
+          created_by: string;
+          title: string;
+          entry_amount: number;
+          currency?: string;
+          draw_date: string;
+          status?: "open" | "drawn" | "cancelled";
+        };
+        Update: { status?: "open" | "drawn" | "cancelled"; winner_id?: string | null };
+        Relationships: [];
+      };
+      lottery_entries: {
+        Row: { id: string; lottery_id: string; user_id: string; paid: boolean; created_at: string };
+        Insert: { id?: string; lottery_id: string; user_id: string; paid?: boolean };
+        Update: { paid?: boolean };
+        Relationships: [];
+      };
+      plan_items: {
+        Row: {
+          id: string;
+          circle_id: string;
+          text: string;
+          category: string | null;
+          assigned_to: string | null;
+          is_done: boolean;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          circle_id: string;
+          text: string;
+          category?: string | null;
+          assigned_to?: string | null;
+          is_done?: boolean;
+          created_by: string;
+        };
+        Update: {
+          text?: string;
+          category?: string | null;
+          assigned_to?: string | null;
+          is_done?: boolean;
+        };
+        Relationships: [];
+      };
+      spot_invites: {
+        Row: {
+          id: string;
+          circle_id: string;
+          created_by: string;
+          code: string;
+          expires_at: string;
+          uses: number;
+          max_uses: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          circle_id: string;
+          created_by: string;
+          code: string;
+          expires_at?: string;
+          max_uses?: number;
+        };
+        Update: { uses?: number };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
+      join_spot_by_invite: {
+        Args: { p_code: string };
+        Returns: { circle_id: string; circle_name: string; already_member: boolean } | null;
+      };
       find_private_room_by_code: {
         Args: { p_code: string };
         Returns: Array<{ id: string; circle_id: string; name: string; room_mode: string; is_active: boolean }>;
@@ -492,13 +662,24 @@ export type CirclePrivateRoomMember = Database["friendspot"]["Tables"]["circle_p
 export type Bet = Database["friendspot"]["Tables"]["bets"]["Row"];
 export type BetEntry = Database["friendspot"]["Tables"]["bet_entries"]["Row"];
 export type CoinTransaction = Database["friendspot"]["Tables"]["coin_transactions"]["Row"];
+export type Story = Database["friendspot"]["Tables"]["stories"]["Row"];
+export type StoryView = Database["friendspot"]["Tables"]["story_views"]["Row"];
+export type UserPublicKey = Database["friendspot"]["Tables"]["user_public_keys"]["Row"];
+export type CircleKey = Database["friendspot"]["Tables"]["circle_keys"]["Row"];
+export type PendingKeyShare = Database["friendspot"]["Tables"]["pending_key_shares"]["Row"];
+export type PushToken = Database["friendspot"]["Tables"]["push_tokens"]["Row"];
+export type CircleLottery = Database["friendspot"]["Tables"]["circle_lotteries"]["Row"];
+export type LotteryEntry = Database["friendspot"]["Tables"]["lottery_entries"]["Row"];
+export type SpotInvite = Database["friendspot"]["Tables"]["spot_invites"]["Row"];
+export type PlanItem = Database["friendspot"]["Tables"]["plan_items"]["Row"];
 
 // ── Joined types used in UI ──────────────────────────────────────────────────
 export type CircleMessageWithSender = CircleMessage & { sender: Profile };
 /** @deprecated use CircleMessageWithSender */
 export type VoiceNoteWithSender = CircleMessageWithSender;
 
-export type CircleWithMembers = Circle & { members: Profile[]; member_count: number };
+export type MemberProfile = Profile & { role: "owner" | "admin" | "member" };
+export type CircleWithMembers = Circle & { members: MemberProfile[]; member_count: number };
 export type MomentWithCircle = Moment & { circle: Circle };
 export type ExpenseWithSplits = Expense & {
   splits: (ExpenseSplit & { user: Profile })[];

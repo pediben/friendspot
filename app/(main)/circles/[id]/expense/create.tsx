@@ -66,14 +66,14 @@ export default function CreateExpenseScreen() {
 
     // Each person (including me) pays equal share
     const totalPeople = splitWith.length + 1;
-    const perPerson = +(amt / totalPeople).toFixed(2);
+    const perPersonCents = Math.round((amt / totalPeople) * 100);
 
     const { data: expense, error: expErr } = await supabase
       .from("expenses")
       .insert({
         circle_id: circleId,
         paid_by: session!.user.id,
-        amount: amt,
+        amount_cents: Math.round(amt * 100),
         currency: "USD",
         category,
         description: description.trim(),
@@ -89,8 +89,8 @@ export default function CreateExpenseScreen() {
 
     const splits = splitWith.map(uid => ({
       expense_id: expense.id,
-      user_id: uid,
-      amount_owed: perPerson,
+      owed_by: uid,
+      amount_cents: perPersonCents,
     }));
 
     const { error: splitErr } = await supabase.from("expense_splits").insert(splits);
