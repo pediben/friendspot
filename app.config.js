@@ -15,7 +15,6 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.friendspot.app",
-      buildNumber: "3",
       associatedDomains: ["applinks:friendspot.online"],
       infoPlist: {
         NSMicrophoneUsageDescription:
