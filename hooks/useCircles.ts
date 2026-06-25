@@ -74,18 +74,17 @@ export function useCircles() {
   const createCircle = async (name: string, icon: string) => {
     if (!userId) return null;
 
-    // Force-refresh the JWT before any insert so auth.uid() is never NULL on the server.
-    // In React Native, autoRefreshToken needs help from AppState; this is the belt+suspenders fallback.
-    const { data: { session: freshSession }, error: sessionError } = await supabase.auth.getSession();
+    // Force-refresh the JWT from the server so auth.uid() is never NULL.
+    // refreshSession() hits the Supabase token endpoint and returns a brand-new access token,
+    // bypassing any stale/corrupt token that may be cached locally.
+    const { data: { session: freshSession }, error: sessionError } = await supabase.auth.refreshSession();
     if (sessionError || !freshSession) throw new Error("Session expired — please sign out and sign back in.");
 
-    // Force set the session so the JWT is definitely in the Authorization header
+    // Explicitly set it so the client uses the new token for this request
     await supabase.auth.setSession({
       access_token: freshSession.access_token,
       refresh_token: freshSession.refresh_token,
     });
-
-    console.log("[createCircle] user.id:", freshSession.user.id);
 
     const { data, error } = await supabase
       .from("circles")
