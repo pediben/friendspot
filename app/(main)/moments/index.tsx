@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useMoments } from "@/hooks/useMoments";
 import { MomentWithCircle } from "@/types/database";
@@ -84,7 +85,9 @@ export default function MomentsListScreen() {
             style={styles.addBtn}
             onPress={() => router.push("/(main)/moments/create")}
           >
-            <Ionicons name="add" size={22} color="#FFFFFF" />
+            <LinearGradient colors={["#9FBD84", "#7A9B63"]} style={styles.addBtnGradient}>
+              <Ionicons name="add" size={22} color="#0C0D0B" />
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </View>
@@ -174,8 +177,10 @@ export default function MomentsListScreen() {
             style={styles.emptyBtn}
             onPress={() => router.push("/(main)/moments/create")}
           >
-            <Ionicons name="add" size={18} color="#fff" style={{ marginRight: 6 }} />
-            <Text style={styles.emptyBtnText}>Create your first moment</Text>
+            <LinearGradient colors={["#9FBD84", "#7A9B63"]} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.emptyBtnGradient}>
+              <Ionicons name="add" size={18} color="#0C0D0B" style={{ marginRight: 6 }} />
+              <Text style={styles.emptyBtnText}>Create your first moment</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </ScrollView>
       ) : (
@@ -201,7 +206,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   logoRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  heading: { fontSize: 26, fontWeight: "800", color: Colors.text, letterSpacing: -0.4 },
+  heading: { fontSize: 28, fontWeight: "800", color: Colors.text, letterSpacing: -0.5 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   glassBtn: {
     width: 36, height: 36, borderRadius: 18,
@@ -210,21 +215,23 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
   addBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.purple,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  addBtnGradient: {
+    width: 40, height: 40,
+    alignItems: "center", justifyContent: "center",
   },
   card: {
-    backgroundColor: Colors.bgCard,
+    backgroundColor: "#13150F",
     marginHorizontal: 16,
     marginVertical: 6,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 18,
     borderWidth: 1,
-    borderColor: Colors.bgCardBorder,
+    borderColor: "rgba(255,255,255,0.08)",
   },
   cardTop: {
     flexDirection: "row",
@@ -297,12 +304,14 @@ const styles = StyleSheet.create({
   },
 
   emptyBtn: {
+    borderRadius: 40,
+    overflow: "hidden",
+  },
+  emptyBtnGradient: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.purple,
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 30,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
   },
-  emptyBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  emptyBtnText: { color: "#0C0D0B", fontSize: 15, fontWeight: "700" },
 });

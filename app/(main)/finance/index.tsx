@@ -443,10 +443,10 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 120 },
 
   card: {
-    backgroundColor: CARD,
-    borderRadius: 18,
+    backgroundColor: "#13150F",
+    borderRadius: 22,
     borderWidth: 1,
-    padding: 16,
+    padding: 18,
     marginBottom: 12,
   },
   cardHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 14 },

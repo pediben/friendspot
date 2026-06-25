@@ -1,6 +1,6 @@
 /**
  * CircleDetailScreen
- * Top: Live Room bar (shows active members, tap to join)
+ * Top: Premium feature cards (Room, Private Call, Bets, Rounds, Split)
  * Bottom: Voice thread (async voice notes feed + recorder)
  */
 import { useRef, useState, useEffect } from "react";
@@ -13,6 +13,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,6 +24,13 @@ import { VoiceNotePlayer } from "@/components/voice/VoiceNotePlayer";
 import { VoiceNoteRecorder } from "@/components/voice/VoiceNoteRecorder";
 import { CircleMessageWithSender } from "@/types/database";
 import { Colors } from "@/constants/Colors";
+
+// ─── Design tokens ───────────────────────────────────────────────
+const BG     = "#0C0D0B";
+const BORDER = "rgba(255,255,255,0.08)";
+const TEXT   = "#F4F5F0";
+const MUTED  = "rgba(244,245,240,0.5)";
+const FAINT  = "rgba(244,245,240,0.22)";
 
 export default function CircleDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -60,99 +68,120 @@ export default function CircleDetailScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* ── Header ── */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={24} color={Colors.text} />
+          <Ionicons name="chevron-back" size={24} color={TEXT} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {spotName}
-        </Text>
-        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-          <TouchableOpacity
-            onPress={() => router.push(`/(main)/circles/${id}/events` as any)}
-          >
-            <Ionicons name="calendar-outline" size={22} color={Colors.sage} />
+        <Text style={styles.headerTitle} numberOfLines={1}>{spotName}</Text>
+        <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => router.push(`/(main)/circles/${id}/events` as any)}>
+            <Ionicons name="calendar-outline" size={20} color={Colors.sage} />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push(`/(main)/circles/${id}/planning` as any)}
-          >
-            <Ionicons name="list-outline" size={22} color={Colors.sage} />
+          <TouchableOpacity style={styles.iconBtn} onPress={() => router.push(`/(main)/circles/${id}/planning` as any)}>
+            <Ionicons name="list-outline" size={20} color={Colors.sage} />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => shareSpotInvite(id, spotName, session!.user.id)}
-          >
-            <Ionicons name="person-add-outline" size={22} color={Colors.purple} />
+          <TouchableOpacity style={styles.iconBtn} onPress={() => shareSpotInvite(id, spotName, session!.user.id)}>
+            <Ionicons name="person-add-outline" size={20} color={Colors.purple} />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push(`/(main)/circles/${id}/settings` as any)}
-          >
-            <Ionicons name="ellipsis-horizontal" size={22} color={Colors.textMuted} />
+          <TouchableOpacity style={styles.iconBtn} onPress={() => router.push(`/(main)/circles/${id}/settings` as any)}>
+            <Ionicons name="ellipsis-horizontal" size={20} color={MUTED} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Calls row */}
-      <View style={styles.featureRow}>
+      {/* ── Feature grid ── */}
+      <View style={styles.featuresContainer}>
+        {/* Live Room — full width, hero card */}
         <TouchableOpacity
-          style={styles.featureBarGreen}
+          style={styles.roomCard}
           onPress={() => router.push(`/(main)/circles/${id}/room`)}
-          activeOpacity={0.8}
+          activeOpacity={0.75}
         >
-          <View style={styles.liveDot} />
-          <Text style={styles.featureTextGreen}>Room</Text>
-          <Text style={styles.arrowGreen}>→</Text>
+          <LinearGradient
+            colors={["rgba(74,222,128,0.18)", "rgba(74,222,128,0.06)"]}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={styles.roomGradient}
+          >
+            <View style={styles.roomLeft}>
+              <View style={styles.livePillWrap}>
+                <View style={styles.liveDot} />
+                <Text style={styles.livePillText}>LIVE</Text>
+              </View>
+              <Text style={styles.roomTitle}>Group Room</Text>
+              <Text style={styles.roomSub}>Tap to join or start a call</Text>
+            </View>
+            <View style={styles.roomIconWrap}>
+              <Ionicons name="radio-outline" size={36} color={Colors.green} style={{ opacity: 0.8 }} />
+            </View>
+          </LinearGradient>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.featureBarPurple}
-          onPress={() => router.push(`/(main)/circles/${id}/private-rooms` as any)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="lock-closed" size={13} color={Colors.purple} />
-          <Text style={styles.featureTextPurple}>Private Call</Text>
-          <Text style={styles.arrowPurple}>→</Text>
-        </TouchableOpacity>
+
+        {/* Second row: Private Call + Bets */}
+        <View style={styles.featureRow}>
+          <TouchableOpacity
+            style={styles.featureCard}
+            onPress={() => router.push(`/(main)/circles/${id}/private-rooms` as any)}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.featureIconRing, { backgroundColor: "rgba(139,92,246,0.14)", borderColor: "rgba(139,92,246,0.25)" }]}>
+              <Ionicons name="lock-closed" size={22} color="#A78BFA" />
+            </View>
+            <Text style={styles.featureTitle}>Private{"\n"}Call</Text>
+            <Ionicons name="chevron-forward" size={13} color={FAINT} style={{ alignSelf: "flex-end" }} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.featureCard}
+            onPress={() => router.push(`/(main)/circles/${id}/bets` as any)}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.featureIconRing, { backgroundColor: "rgba(234,179,8,0.12)", borderColor: "rgba(234,179,8,0.25)" }]}>
+              <Ionicons name="trophy-outline" size={22} color="#FCD34D" />
+            </View>
+            <Text style={styles.featureTitle}>Bets</Text>
+            <Ionicons name="chevron-forward" size={13} color={FAINT} style={{ alignSelf: "flex-end" }} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Third row: Rounds + Expenses */}
+        <View style={styles.featureRow}>
+          <TouchableOpacity
+            style={styles.featureCard}
+            onPress={() => router.push(`/(main)/circles/${id}/lottery` as any)}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.featureIconRing, { backgroundColor: "rgba(239,68,68,0.1)", borderColor: "rgba(239,68,68,0.22)" }]}>
+              <Ionicons name="repeat-outline" size={22} color="#FCA5A5" />
+            </View>
+            <Text style={styles.featureTitle}>Rounds</Text>
+            <Ionicons name="chevron-forward" size={13} color={FAINT} style={{ alignSelf: "flex-end" }} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.featureCard}
+            onPress={() => router.push(`/(main)/circles/${id}/expenses` as any)}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.featureIconRing, { backgroundColor: "rgba(74,222,128,0.1)", borderColor: "rgba(74,222,128,0.2)" }]}>
+              <Ionicons name="wallet-outline" size={22} color={Colors.green} />
+            </View>
+            <Text style={styles.featureTitle}>Split{"\n"}Expenses</Text>
+            <Ionicons name="chevron-forward" size={13} color={FAINT} style={{ alignSelf: "flex-end" }} />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Games/money row */}
-      <View style={styles.featureRow}>
-        <TouchableOpacity
-          style={styles.featureBarYellow}
-          onPress={() => router.push(`/(main)/circles/${id}/bets` as any)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="trophy-outline" size={14} color="#CA8A04" />
-          <Text style={styles.featureTextYellow}>Bets</Text>
-          <Ionicons name="chevron-forward" size={13} color="#CA8A04" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.featureBarRed}
-          onPress={() => router.push(`/(main)/circles/${id}/lottery` as any)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="repeat-outline" size={14} color="#EF4444" />
-          <Text style={styles.featureTextRed}>Rounds</Text>
-          <Ionicons name="chevron-forward" size={13} color="#EF4444" />
-        </TouchableOpacity>
+      {/* ── Voice thread ── */}
+      <View style={styles.divider}>
+        <Text style={styles.dividerLabel}>VOICE NOTES</Text>
       </View>
 
-      {/* Split expenses */}
-      <TouchableOpacity
-        style={styles.expenseBar}
-        onPress={() => router.push(`/(main)/circles/${id}/expenses` as any)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="wallet-outline" size={14} color={Colors.green} />
-        <Text style={styles.expenseText}>Split expenses</Text>
-        <Ionicons name="chevron-forward" size={13} color={Colors.green} />
-      </TouchableOpacity>
-
-      {/* Voice thread */}
       {loading ? (
         <ActivityIndicator color={Colors.purple} style={{ flex: 1 }} />
       ) : notes.length === 0 ? (
         <View style={styles.empty}>
-          <Ionicons name="mic-outline" size={48} color={Colors.textFaint} style={{ marginBottom: 16 }} />
+          <Ionicons name="mic-outline" size={44} color={FAINT} style={{ marginBottom: 12 }} />
           <Text style={styles.emptyText}>
             No voice notes yet.{"\n"}Hold the mic to say something.
           </Text>
@@ -168,7 +197,7 @@ export default function CircleDetailScreen() {
         />
       )}
 
-      {/* Recorder */}
+      {/* ── Recorder ── */}
       <View style={styles.recorderBar}>
         <VoiceNoteRecorder onSend={handleSend} />
       </View>
@@ -177,78 +206,139 @@ export default function CircleDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
+  container: { flex: 1, backgroundColor: BG },
+
+  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 12, /* overridden inline with insets */
     paddingBottom: 12,
   },
   backBtn: { padding: 4, marginRight: 8 },
   headerTitle: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: "700",
-    color: Colors.text,
-    textAlign: "center",
+    color: TEXT,
   },
-  featureRow: {
-    flexDirection: "row", gap: 8,
-    marginHorizontal: 16, marginBottom: 8,
+  iconBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1, borderColor: BORDER,
+    alignItems: "center", justifyContent: "center",
   },
-  featureBarGreen: {
-    flex: 1, flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "rgba(74,222,128,0.12)", paddingHorizontal: 12,
-    paddingVertical: 10, borderRadius: 14, borderWidth: 1,
+
+  // Feature grid
+  featuresContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 6,
+    gap: 10,
+  },
+
+  // Room hero card
+  roomCard: {
+    borderRadius: 22,
+    overflow: "hidden",
+    borderWidth: 1,
     borderColor: "rgba(74,222,128,0.2)",
   },
-  featureBarPurple: {
-    flex: 1, flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "rgba(124,58,237,0.08)", paddingHorizontal: 12,
-    paddingVertical: 10, borderRadius: 14, borderWidth: 1,
-    borderColor: "rgba(124,58,237,0.2)",
+  roomGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 22,
+    paddingVertical: 22,
   },
-  featureBarYellow: {
-    flex: 1, flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "rgba(234,179,8,0.08)", paddingHorizontal: 12,
-    paddingVertical: 10, borderRadius: 14, borderWidth: 1,
-    borderColor: "rgba(234,179,8,0.25)",
+  roomLeft: { flex: 1 },
+  livePillWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(74,222,128,0.15)",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignSelf: "flex-start",
+    marginBottom: 10,
   },
-  featureBarRed: {
-    flex: 1, flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "rgba(239,68,68,0.08)", paddingHorizontal: 12,
-    paddingVertical: 10, borderRadius: 14, borderWidth: 1,
-    borderColor: "rgba(239,68,68,0.2)",
+  liveDot: {
+    width: 7, height: 7, borderRadius: 4,
+    backgroundColor: Colors.green,
   },
-  expenseBar: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    marginHorizontal: 16, marginBottom: 12,
-    backgroundColor: "rgba(74,222,128,0.08)", paddingHorizontal: 16,
-    paddingVertical: 10, borderRadius: 14, borderWidth: 1,
-    borderColor: "rgba(74,222,128,0.15)",
+  livePillText: {
+    fontSize: 10, fontWeight: "800",
+    color: Colors.green, letterSpacing: 1.2,
   },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.green },
-  featureTextGreen: { flex: 1, color: Colors.green, fontSize: 13, fontWeight: "600" },
-  featureTextPurple: { flex: 1, color: Colors.purple, fontSize: 13, fontWeight: "600" },
-  featureTextYellow: { flex: 1, color: "#CA8A04", fontSize: 13, fontWeight: "600" },
-  featureTextRed: { flex: 1, color: "#EF4444", fontSize: 13, fontWeight: "600" },
-  expenseText: { flex: 1, color: Colors.green, fontSize: 13, fontWeight: "600" },
-  arrowGreen: { color: Colors.green, fontSize: 13, fontWeight: "700" },
-  arrowPurple: { color: Colors.purple, fontSize: 13, fontWeight: "700" },
-  arrowYellow: { color: "#CA8A04", fontSize: 13, fontWeight: "700" },
-  arrowRed: { color: "#EF4444", fontSize: 13, fontWeight: "700" },
+  roomTitle: {
+    fontSize: 20, fontWeight: "800",
+    color: TEXT, letterSpacing: -0.3,
+    marginBottom: 3,
+  },
+  roomSub: { fontSize: 13, color: MUTED },
+  roomIconWrap: {
+    width: 68, height: 68, borderRadius: 34,
+    backgroundColor: "rgba(74,222,128,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(74,222,128,0.2)",
+    alignItems: "center", justifyContent: "center",
+  },
+
+  // Two-column feature cards
+  featureRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  featureCard: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: BORDER,
+    padding: 18,
+    gap: 12,
+  },
+  featureIconRing: {
+    width: 48, height: 48, borderRadius: 16,
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 1,
+  },
+  featureTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: TEXT,
+    letterSpacing: -0.2,
+    flex: 1,
+  },
+
+  // Voice section
+  divider: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  dividerLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: FAINT,
+    letterSpacing: 1.4,
+  },
+
+  // Empty
   empty: { flex: 1, alignItems: "center", justifyContent: "center", padding: 40 },
   emptyText: {
-    color: Colors.textMuted,
-    fontSize: 16,
+    color: MUTED,
+    fontSize: 15,
     textAlign: "center",
     lineHeight: 24,
   },
+
+  // Recorder
   recorderBar: {
     borderTopWidth: 1,
-    borderTopColor: Colors.bgCardBorder,
-    backgroundColor: Colors.bg,
+    borderTopColor: BORDER,
+    backgroundColor: BG,
     paddingBottom: 24,
   },
 });

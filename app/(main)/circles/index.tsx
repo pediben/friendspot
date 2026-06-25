@@ -15,6 +15,7 @@ import {
   Platform,
   Keyboard,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
@@ -27,10 +28,10 @@ import { supabase } from "@/lib/supabase";
 
 // ─── Design tokens ──────────────────────────────────────────────
 const BG        = "#0C0D0B";
-const CARD_BG   = "#111310";
-const BORDER    = "rgba(255,255,255,0.07)";
+const CARD_BG   = "#13150F";
+const BORDER    = "rgba(255,255,255,0.08)";
 const TEXT      = "#F4F5F0";
-const MUTED     = "rgba(244,245,240,0.4)";
+const MUTED     = "rgba(244,245,240,0.45)";
 const FAINT     = "rgba(244,245,240,0.18)";
 const SAGE      = "#8FA876";
 const SAGE_DIM  = "rgba(143,168,118,0.12)";
@@ -151,16 +152,19 @@ export default function SpotsHomeScreen() {
       <TouchableOpacity
         style={styles.card}
         onPress={() => router.push(`/(main)/circles/${item.id}`)}
-        activeOpacity={0.65}
+        activeOpacity={0.6}
       >
         {/* Cover photo or colored monogram */}
         {hasPhoto ? (
           <Image source={{ uri: item.icon! }} style={styles.coverThumb} />
         ) : (
-          <View style={[styles.monogram, { backgroundColor: c.dim, borderColor: c.hex + "33" }]}>
+          <View style={[styles.monogram, { backgroundColor: c.dim, borderColor: c.hex + "40" }]}>
             <Text style={[styles.monogramText, { color: c.hex }]}>{initials}</Text>
           </View>
         )}
+
+        {/* Color accent stripe */}
+        <View style={[styles.accentStripe, { backgroundColor: c.hex + "80" }]} />
 
         {/* Info */}
         <View style={styles.cardBody}>
@@ -174,12 +178,12 @@ export default function SpotsHomeScreen() {
         <View style={styles.cardRight}>
           <View style={styles.avatarStack}>
             {item.members.slice(0, 3).map((m, i) => (
-              <View key={m.id} style={[styles.avatarWrap, { right: i * 14 }]}>
-                <Avatar uri={m.avatar_url} name={m.display_name} size={24} />
+              <View key={m.id} style={[styles.avatarWrap, { right: i * 16 }]}>
+                <Avatar uri={m.avatar_url} name={m.display_name} size={26} />
               </View>
             ))}
           </View>
-          <Ionicons name="chevron-forward" size={14} color={FAINT} style={{ marginLeft: 8 }} />
+          <Ionicons name="chevron-forward" size={14} color={FAINT} style={{ marginLeft: 10 }} />
         </View>
       </TouchableOpacity>
     );
@@ -211,7 +215,9 @@ export default function SpotsHomeScreen() {
             <Ionicons name="person-circle-outline" size={20} color="rgba(244,245,240,0.7)" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.sageBtn} onPress={() => setShowCreate(true)}>
-            <Ionicons name="add" size={20} color={BG} />
+            <LinearGradient colors={["#9FBD84", "#7A9B63"]} style={styles.sageBtnGradient}>
+              <Ionicons name="add" size={20} color={BG} />
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </View>
@@ -282,9 +288,11 @@ export default function SpotsHomeScreen() {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.emptyBtn} onPress={() => setShowCreate(true)}>
-            <Ionicons name="add" size={18} color={BG} style={{ marginRight: 6 }} />
-            <Text style={styles.emptyBtnText}>Create your first Friendspot</Text>
+          <TouchableOpacity style={styles.emptyBtn} onPress={() => setShowCreate(true)} activeOpacity={0.8}>
+            <LinearGradient colors={["#9FBD84", "#7A9B63"]} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.emptyBtnGradient}>
+              <Ionicons name="add" size={18} color={BG} style={{ marginRight: 6 }} />
+              <Text style={styles.emptyBtnText}>Create your first Friendspot</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </ScrollView>
       ) : (
@@ -395,25 +403,28 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
     paddingHorizontal: 24,
-    paddingTop: 68,
-    paddingBottom: 24,
+    paddingTop: 72,
+    paddingBottom: 20,
   },
   wordmark: { flexDirection: "row", alignItems: "center", gap: 8 },
-  heading: { fontSize: 26, fontWeight: "800", color: TEXT, letterSpacing: -0.5 },
+  heading: { fontSize: 28, fontWeight: "800", color: TEXT, letterSpacing: -0.6 },
   subLabel: {
     fontSize: 11, color: FAINT,
     marginTop: 5, letterSpacing: 1.2, textTransform: "uppercase",
   },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6 },
   glassBtn: {
-    width: 38, height: 38, borderRadius: 19,
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: "rgba(255,255,255,0.06)",
     borderWidth: 1, borderColor: BORDER,
     alignItems: "center", justifyContent: "center",
   },
   sageBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: SAGE,
+    width: 40, height: 40, borderRadius: 20,
+    overflow: "hidden",
+  },
+  sageBtnGradient: {
+    width: 40, height: 40, borderRadius: 20,
     alignItems: "center", justifyContent: "center",
   },
 
@@ -452,28 +463,32 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: CARD_BG,
-    borderRadius: 18,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: BORDER,
     marginBottom: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+  },
+  accentStripe: {
+    width: 3, height: 28, borderRadius: 2,
+    marginRight: 12,
   },
   coverThumb: {
-    width: 50, height: 50, borderRadius: 14,
-    marginRight: 14,
+    width: 56, height: 56, borderRadius: 16,
+    marginRight: 16,
   },
   monogram: {
-    width: 50, height: 50, borderRadius: 14,
+    width: 56, height: 56, borderRadius: 16,
     alignItems: "center", justifyContent: "center",
-    borderWidth: 1, marginRight: 14,
+    borderWidth: 1, marginRight: 16,
   },
-  monogramText: { fontSize: 18, fontWeight: "800", letterSpacing: 0.5 },
+  monogramText: { fontSize: 20, fontWeight: "800", letterSpacing: 0.5 },
   cardBody: { flex: 1 },
-  cardName: { fontSize: 16, fontWeight: "700", color: TEXT, letterSpacing: -0.1 },
-  cardMeta: { fontSize: 11, color: MUTED, marginTop: 3, letterSpacing: 0.8 },
+  cardName: { fontSize: 17, fontWeight: "700", color: TEXT, letterSpacing: -0.2 },
+  cardMeta: { fontSize: 12, color: MUTED, marginTop: 4, letterSpacing: 0.7 },
   cardRight: { flexDirection: "row", alignItems: "center" },
-  avatarStack: { flexDirection: "row-reverse", width: 52, height: 24, position: "relative" },
+  avatarStack: { flexDirection: "row-reverse", width: 62, height: 26, position: "relative" },
   avatarWrap: { position: "absolute" },
 
   // Empty state
@@ -488,10 +503,13 @@ const styles = StyleSheet.create({
   demoLine: { borderRadius: 7, backgroundColor: "rgba(255,255,255,0.15)" },
 
   emptyBtn: {
+    borderRadius: 40,
+    overflow: "hidden",
+  },
+  emptyBtnGradient: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: SAGE,
-    paddingHorizontal: 32, paddingVertical: 15, borderRadius: 40,
+    paddingHorizontal: 32, paddingVertical: 16, borderRadius: 40,
   },
   emptyBtnText: { color: BG, fontSize: 15, fontWeight: "700", letterSpacing: 0.3 },
 
