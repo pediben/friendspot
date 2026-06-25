@@ -11,6 +11,9 @@ import {
   Alert,
   Image,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -296,80 +299,87 @@ export default function SpotsHomeScreen() {
 
       {/* ── Create Sheet ── */}
       <Modal visible={showCreate} animationType="slide" transparent>
-        <View style={styles.overlay}>
-          <TouchableOpacity style={{ flex: 1 }} onPress={() => { setShowCreate(false); resetForm(); }} activeOpacity={1} />
-          <View style={styles.sheet}>
-            <View style={styles.sheetHandle} />
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={styles.overlay}>
+            <TouchableOpacity style={{ flex: 1 }} onPress={() => { Keyboard.dismiss(); setShowCreate(false); resetForm(); }} activeOpacity={1} />
+            <View style={styles.sheet}>
+              <View style={styles.sheetHandle} />
 
-            <View style={styles.sheetLogoRow}>
-              <LogoMark size={32} />
-              <Text style={styles.sheetTitle}>New Group</Text>
-            </View>
-            <Text style={styles.sheetSub}>Name your friend group and add a photo so everyone recognizes it.</Text>
-
-            {/* ── Cover photo picker ── */}
-            <Text style={styles.fieldLabel}>GROUP PHOTO <Text style={styles.optional}>(optional)</Text></Text>
-            <TouchableOpacity style={styles.photoPickerArea} onPress={pickPhoto} activeOpacity={0.75}>
-              {coverUri ? (
-                <>
-                  <Image source={{ uri: coverUri }} style={styles.photoPreview} />
-                  <View style={styles.photoEditBadge}>
-                    <Ionicons name="pencil" size={12} color="#fff" />
-                  </View>
-                </>
-              ) : (
-                <View style={styles.photoPlaceholder}>
-                  <Ionicons name="camera-outline" size={28} color={MUTED} />
-                  <Text style={styles.photoPlaceholderText}>Upload a photo of you and your friends</Text>
-                  <Text style={styles.photoPlaceholderHint}>Tap to choose from library</Text>
+              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <View style={styles.sheetLogoRow}>
+                  <LogoMark size={32} />
+                  <Text style={styles.sheetTitle}>New Group</Text>
                 </View>
-              )}
-            </TouchableOpacity>
+                <Text style={styles.sheetSub}>Name your friend group and add a photo so everyone recognizes it.</Text>
 
-            {/* Name */}
-            <Text style={styles.fieldLabel}>GROUP NAME</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Fam, College Crew, Work Gang, Road Trip"
-              placeholderTextColor={FAINT}
-              value={newName}
-              onChangeText={setNewName}
-              autoFocus
-              returnKeyType="next"
-              maxLength={40}
-            />
+                {/* Name */}
+                <Text style={styles.fieldLabel}>GROUP NAME</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Fam, College Crew, Work Gang, Road Trip"
+                  placeholderTextColor={FAINT}
+                  value={newName}
+                  onChangeText={setNewName}
+                  autoFocus
+                  returnKeyType="next"
+                  maxLength={40}
+                />
 
-            {/* Description */}
-            <Text style={styles.fieldLabel}>DESCRIPTION <Text style={styles.optional}>(optional)</Text></Text>
-            <TextInput
-              style={[styles.input, styles.inputMulti]}
-              placeholder="What's this spot about?"
-              placeholderTextColor={FAINT}
-              value={newDesc}
-              onChangeText={setNewDesc}
-              multiline
-              numberOfLines={2}
-              maxLength={100}
-            />
+                {/* Description */}
+                <Text style={styles.fieldLabel}>DESCRIPTION <Text style={styles.optional}>(optional)</Text></Text>
+                <TextInput
+                  style={[styles.input, styles.inputMulti]}
+                  placeholder="What's this spot about?"
+                  placeholderTextColor={FAINT}
+                  value={newDesc}
+                  onChangeText={setNewDesc}
+                  multiline
+                  numberOfLines={2}
+                  maxLength={100}
+                />
 
-            {/* Actions */}
-            <View style={styles.actions}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => { setShowCreate(false); resetForm(); }}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.createBtn, (!newName.trim() || creating) && { opacity: 0.5 }]}
-                onPress={handleCreate}
-                disabled={!newName.trim() || creating}
-              >
-                {creating
-                  ? <ActivityIndicator color={BG} size="small" />
-                  : <Text style={styles.createText}>Create Friendspot</Text>
-                }
-              </TouchableOpacity>
+                {/* ── Cover photo picker (moved to bottom) ── */}
+                <Text style={styles.fieldLabel}>GROUP PHOTO <Text style={styles.optional}>(optional)</Text></Text>
+                <TouchableOpacity style={styles.photoPickerArea} onPress={() => { Keyboard.dismiss(); pickPhoto(); }} activeOpacity={0.75}>
+                  {coverUri ? (
+                    <>
+                      <Image source={{ uri: coverUri }} style={styles.photoPreview} />
+                      <View style={styles.photoEditBadge}>
+                        <Ionicons name="pencil" size={12} color="#fff" />
+                      </View>
+                    </>
+                  ) : (
+                    <View style={styles.photoPlaceholder}>
+                      <Ionicons name="camera-outline" size={28} color={MUTED} />
+                      <Text style={styles.photoPlaceholderText}>Upload a photo of you and your friends</Text>
+                      <Text style={styles.photoPlaceholderHint}>Tap to choose from library</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                {/* Actions */}
+                <View style={styles.actions}>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={() => { Keyboard.dismiss(); setShowCreate(false); resetForm(); }}>
+                    <Text style={styles.cancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.createBtn, (!newName.trim() || creating) && { opacity: 0.5 }]}
+                    onPress={handleCreate}
+                    disabled={!newName.trim() || creating}
+                  >
+                    {creating
+                      ? <ActivityIndicator color={BG} size="small" />
+                      : <Text style={styles.createText}>Create Friendspot</Text>
+                    }
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
