@@ -2,6 +2,15 @@ import { useEffect, useRef } from "react";
 import { View, Animated, StyleSheet, Platform, AppState } from "react-native";
 import { Stack } from "expo-router";
 import { SplashScreen } from "expo-router";
+
+// registerGlobals must be called before any LiveKit usage.
+// Wrapped in try/catch so Expo Go doesn't crash (native module absent).
+try {
+  const { registerGlobals } = require("@livekit/react-native-webrtc");
+  registerGlobals();
+} catch {
+  // Expo Go: WebRTC native module not available — voice rooms require a native build.
+}
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import { supabase } from "@/lib/supabase";

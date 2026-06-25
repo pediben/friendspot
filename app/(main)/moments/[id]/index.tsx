@@ -19,12 +19,12 @@ import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase, uploadFile } from "@/lib/supabase";
 import { useAuthStore } from "@/hooks/useAuth";
-import { Moment, Photo, Expense, ExpenseSplit, Profile } from "@/types/database";
+import { Moment, Photo } from "@/types/database";
 import { getSignedUrl } from "@/lib/supabase";
 import { Colors } from "@/constants/Colors";
 import { Avatar } from "@/components/ui/Avatar";
 
-type Tab = "album" | "expenses" | "planning";
+type Tab = "album" | "guests" | "planning";
 
 export default function MomentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -33,9 +33,9 @@ export default function MomentDetailScreen() {
 
   const [moment, setMoment] = useState<Moment | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("album");
+  const [attendees, setAttendees] = useState<any[]>([]);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
-  const [expenses, setExpenses] = useState<(Expense & { payer: Profile; splits: (ExpenseSplit & { user: Profile })[] })[]>([]);
   const [loading, setLoading] = useState(true);
   const [isInPlanningGroup, setIsInPlanningGroup] = useState(false);
 
@@ -44,12 +44,12 @@ export default function MomentDetailScreen() {
   }, [id]);
 
   const loadMoment = async () => {
-    const [momentRes, photosRes, expensesRes, planningRes] = await Promise.all([
+    const [momentRes, photosRes, attendeesRes, planningRes] = await Promise.all([
       supabase.from("moments").select("*").eq("id", id).single(),
       supabase.from("photos").select("*").eq("moment_id", id).order("created_at"),
       supabase
-        .from("expenses")
-        .select("*, payer:profiles!paid_by(*), splits:expense_splits(*, user:profiles(*))")
+        .from("moment_attendees")
+        .select("*, user:profiles(*)")
         .eq("moment_id", id),
       supabase.from("moment_attendees").select("user_id").eq("moment_id", id).eq("user_id", userId ?? ""),
     ]);
@@ -68,7 +68,7 @@ export default function MomentDetailScreen() {
     );
     setPhotoUrls(urlMap);
 
-    setExpenses((expensesRes.data ?? []) as any);
+    setAttendees(attendeesRes.data ?? []);
     setIsInPlanningGroup((planningRes.data ?? []).length > 0);
     setLoading(false);
   };
@@ -82,30 +82,35 @@ export default function MomentDetailScreen() {
     if (result.canceled) return;
 
     for (const asset of result.assets) {
-      const blob = await (await fetch(asset.uri)).blob();
-      const path = await uploadFile("photos", userId!, `${id}/${Date.now()}.jpg`, blob, "image/jpeg");
-      if (path) {
+      // Use FormData — fetch().blob() returns empty blobs for local photo URIs in RN
+      const ext = asset.uri.split(".").pop()?.toLowerCase() ?? "jpg";
+      const mime = ext === "png" ? "image/png" : "image/jpeg";
+      const fileName = `${id}/${Date.now()}.${ext}`;
+      const storagePath = `${userId!}/${fileName}`;
+
+      const form = new FormData();
+      form.append("file", { uri: asset.uri, type: mime, name: fileName } as any);
+
+      const { error } = await supabase.storage
+        .from("photos")
+        .upload(storagePath, form as any, { contentType: mime, upsert: false });
+
+      if (!error) {
         await supabase.from("photos").insert({
           moment_id: id,
           uploader_id: userId!,
-          image_url: path,
+          image_url: storagePath,
         });
+      } else {
+        console.error("[addPhoto]", error.message);
       }
     }
     loadMoment();
   };
 
-  const settleExpense = async (splitId: string) => {
-    const { error } = await supabase
-      .from("expense_splits")
-      .update({ settled: true, settled_at: new Date().toISOString() })
-      .eq("id", splitId);
-    if (!error) loadMoment();
-  };
-
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: "album", label: "Album", icon: "images-outline" },
-    { key: "expenses", label: "Expenses", icon: "cash-outline" },
+    { key: "guests", label: "Guests", icon: "people-outline" },
     ...(isInPlanningGroup ? [{ key: "planning" as Tab, label: "Secret", icon: "lock-closed-outline" }] : []),
   ];
 
@@ -175,43 +180,40 @@ export default function MomentDetailScreen() {
         </ScrollView>
       )}
 
-      {/* Expenses tab */}
-      {activeTab === "expenses" && (
+      {/* Guests tab */}
+      {activeTab === "guests" && (
         <ScrollView contentContainerStyle={{ padding: 16 }}>
-          <TouchableOpacity
-            style={styles.addExpenseBtn}
-            onPress={() => Alert.alert("Add expense", "Expense form coming soon")}
-          >
-            <Ionicons name="add" size={20} color={Colors.purple} />
-            <Text style={styles.addExpenseText}>Log an expense</Text>
-          </TouchableOpacity>
-
-          {expenses.map((e) => (
-            <View key={e.id} style={styles.expenseCard}>
-              <View style={styles.expenseTop}>
-                <Avatar uri={e.payer.avatar_url} name={e.payer.display_name} size={32} />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={styles.expenseDesc}>{e.description ?? e.category}</Text>
-                  <Text style={styles.expensePayer}>Paid by {e.payer.display_name}</Text>
-                </View>
-                <Text style={styles.expenseAmount}>${(e.amount_cents / 100).toFixed(2)}</Text>
-              </View>
-              {e.splits.map((s) => (
-                <View key={s.id} style={styles.splitRow}>
-                  <Text style={styles.splitName}>{s.user.display_name}</Text>
-                  <Text style={styles.splitAmount}>owes ${(s.amount_cents / 100).toFixed(2)}</Text>
-                  {!s.settled && s.owed_by === userId && (
-                    <TouchableOpacity onPress={() => settleExpense(s.id)} style={styles.settleBtn}>
-                      <Text style={styles.settleBtnText}>Mark settled</Text>
-                    </TouchableOpacity>
-                  )}
-                  {s.settled && (
-                    <Text style={styles.settledText}>✅ Settled</Text>
-                  )}
-                </View>
-              ))}
+          {attendees.length === 0 ? (
+            <View style={styles.guestsEmpty}>
+              <Ionicons name="people-outline" size={40} color={Colors.textFaint} style={{ marginBottom: 12 }} />
+              <Text style={styles.guestsEmptyTitle}>No guests yet</Text>
+              <Text style={styles.guestsEmptyBody}>
+                Share this moment with your group and track who's coming.
+              </Text>
             </View>
-          ))}
+          ) : (
+            attendees.map((a) => (
+              <View key={a.user_id} style={styles.guestRow}>
+                <Avatar uri={a.user?.avatar_url} name={a.user?.display_name} size={38} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.guestName}>{a.user?.display_name ?? "Member"}</Text>
+                  <Text style={styles.guestStatus}>
+                    {a.rsvp_status === "going" ? "✓ Going" :
+                     a.rsvp_status === "not_going" ? "✗ Not going" : "Invited"}
+                  </Text>
+                </View>
+                <View style={[styles.rsvpBadge,
+                  a.rsvp_status === "going" ? styles.rsvpGoing :
+                  a.rsvp_status === "not_going" ? styles.rsvpNo : styles.rsvpPending
+                ]}>
+                  <Text style={styles.rsvpBadgeText}>
+                    {a.rsvp_status === "going" ? "Going" :
+                     a.rsvp_status === "not_going" ? "Can't make it" : "Pending"}
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
         </ScrollView>
       )}
 
@@ -296,48 +298,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  addExpenseBtn: {
+  // Guests tab
+  guestsEmpty: {
+    alignItems: "center",
+    paddingTop: 60,
+    paddingHorizontal: 32,
+  },
+  guestsEmptyTitle: {
+    fontSize: 18, fontWeight: "700", color: Colors.text,
+    marginBottom: 8,
+  },
+  guestsEmptyBody: {
+    fontSize: 14, color: Colors.textMuted,
+    textAlign: "center", lineHeight: 20,
+  },
+  guestRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    backgroundColor: "rgba(124,58,237,0.1)",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: 16,
     padding: 14,
-    borderRadius: 14,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: "rgba(124,58,237,0.2)",
-    marginBottom: 16,
+    borderColor: "rgba(255,255,255,0.08)",
   },
-  addExpenseText: { color: Colors.purple, fontSize: 15, fontWeight: "600" },
-  expenseCard: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: Colors.bgCardBorder,
+  guestName: { fontSize: 15, fontWeight: "600", color: Colors.text },
+  guestStatus: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
+  rsvpBadge: {
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 20,
   },
-  expenseTop: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
-  expenseDesc: { color: Colors.text, fontSize: 15, fontWeight: "600" },
-  expensePayer: { color: Colors.textMuted, fontSize: 12, marginTop: 2 },
-  expenseAmount: { color: Colors.text, fontSize: 17, fontWeight: "700" },
-  splitRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 6,
-    borderTopWidth: 1,
-    borderTopColor: Colors.bgCardBorder,
-    gap: 8,
-  },
-  splitName: { flex: 1, color: Colors.textMuted, fontSize: 13 },
-  splitAmount: { color: Colors.text, fontSize: 13 },
-  settleBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: "rgba(74,222,128,0.12)",
-  },
-  settleBtnText: { color: Colors.green, fontSize: 12, fontWeight: "600" },
-  settledText: { color: Colors.green, fontSize: 12 },
+  rsvpGoing: { backgroundColor: "rgba(74,222,128,0.15)" },
+  rsvpNo: { backgroundColor: "rgba(248,113,113,0.12)" },
+  rsvpPending: { backgroundColor: "rgba(255,255,255,0.06)" },
+  rsvpBadgeText: { fontSize: 11, fontWeight: "700", color: Colors.textMuted },
   secretTitle: {
     fontSize: 22,
     fontWeight: "700",
