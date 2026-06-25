@@ -43,22 +43,19 @@ export function useMoments() {
   }) => {
     if (!userId) throw new Error("Not signed in");
 
-    const { data, error } = await supabase
-      .from("moments")
-      .insert({
-        circle_id: params.circleId,
-        created_by: userId,
-        title: params.title,
-        description: params.description ?? null,
-        location: params.location ?? null,
-        event_date: params.eventDate ?? null,
-        is_secret: params.isSecret ?? false,
-        honoree_id: params.honoreeId ?? null,
-      })
-      .select()
-      .single();
+    // Use SECURITY DEFINER RPC — bypasses RLS auth.uid() timing issue in React Native
+    const { data: rpcData, error } = await supabase.rpc("create_moment_for_user", {
+      p_circle_id: params.circleId,
+      p_title: params.title,
+      p_description: params.description ?? null,
+      p_location: params.location ?? null,
+      p_event_date: params.eventDate ?? null,
+      p_is_secret: params.isSecret ?? false,
+      p_honoree_id: params.honoreeId ?? null,
+    });
 
     if (error) throw error;
+    const data = rpcData as any;
 
     // Add planning members as invited attendees (they can see the secret moment)
     if (params.isSecret && params.planningMemberIds?.length) {
