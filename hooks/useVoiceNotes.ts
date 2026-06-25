@@ -24,6 +24,7 @@ export function useVoiceNotes(circleId: string) {
 
     if (error) {
       console.error("[useVoiceNotes]", error.message);
+      setLoading(false);
       return;
     }
 

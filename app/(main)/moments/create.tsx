@@ -67,7 +67,7 @@ export default function CreateMomentScreen() {
       return;
     }
     if (!selectedCircleId) {
-      Alert.alert("Pick a spot", "Which spot is this moment for?");
+      Alert.alert("Pick a group", "Which group is this moment for?");
       return;
     }
     setLoading(true);
@@ -209,15 +209,15 @@ export default function CreateMomentScreen() {
             maxLength={60}
           />
 
-          {/* Spot picker */}
-          <Text style={styles.fieldLabel}>SPOT</Text>
+          {/* Group picker */}
+          <Text style={styles.fieldLabel}>GROUP</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={{ marginBottom: 28 }}
           >
             {circles.length === 0 ? (
-              <Text style={styles.noCircles}>No spots yet — create one first.</Text>
+              <Text style={styles.noCircles}>No groups yet — create one first.</Text>
             ) : (
               circles.map((c) => {
                 const active = selectedCircleId === c.id;
