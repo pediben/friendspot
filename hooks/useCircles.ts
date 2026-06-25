@@ -74,26 +74,16 @@ export function useCircles() {
   const createCircle = async (name: string, icon: string) => {
     if (!userId) return null;
 
-    // Force-refresh the JWT from the server so auth.uid() is never NULL.
-    // refreshSession() hits the Supabase token endpoint and returns a brand-new access token,
-    // bypassing any stale/corrupt token that may be cached locally.
-    const { data: { session: freshSession }, error: sessionError } = await supabase.auth.refreshSession();
-    if (sessionError || !freshSession) throw new Error("Session expired — please sign out and sign back in.");
-
-    // Explicitly set it so the client uses the new token for this request
-    await supabase.auth.setSession({
-      access_token: freshSession.access_token,
-      refresh_token: freshSession.refresh_token,
+    // Use a server-side SECURITY DEFINER RPC to create the circle.
+    // This bypasses the RLS auth.uid() timing issue in React Native while remaining
+    // fully secure — the function checks auth.uid() server-side and rejects if null.
+    const { data: rpcData, error } = await supabase.rpc("create_circle_for_user", {
+      p_name: name,
+      p_icon: icon ?? null,
     });
 
-    const { data, error } = await supabase
-      .from("circles")
-      .insert({ name, icon, created_by: freshSession.user.id })
-      .select()
-      .single();
-
     if (error) throw error;
-    const circle = data as Circle;
+    const circle = rpcData as Circle;
 
     // Generate a fresh AES-256 circle key and wrap it for the creator
     try {
