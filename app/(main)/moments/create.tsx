@@ -51,6 +51,7 @@ export default function CreateMomentScreen() {
   const [title, setTitle]                     = useState("");
   const [selectedCircleId, setSelectedCircleId] = useState<string | null>(null);
   const [eventDate, setEventDate]             = useState("");
+  const [location, setLocation]               = useState("");
   const [hasSecret, setHasSecret]             = useState(false);
   const [loading, setLoading]                 = useState(false);
 
@@ -76,6 +77,7 @@ export default function CreateMomentScreen() {
         circleId: selectedCircleId,
         title: title.trim(),
         eventDate: eventDate || undefined,
+        location: location.trim() || undefined,
         isSecret: hasSecret,
       });
       router.replace(`/(main)/moments/${moment.id}`);
@@ -253,7 +255,19 @@ export default function CreateMomentScreen() {
             value={eventDate}
             onChangeText={setEventDate}
             keyboardType="numbers-and-punctuation"
+            returnKeyType="next"
+          />
+
+          {/* Location */}
+          <Text style={styles.fieldLabel}>LOCATION <Text style={styles.optional}>(OPTIONAL)</Text></Text>
+          <TextInput
+            style={[styles.input, { borderColor: location.length > 0 ? accent + "55" : BORDER }]}
+            placeholder="Address or place name"
+            placeholderTextColor={FAINT}
+            value={location}
+            onChangeText={setLocation}
             returnKeyType="done"
+            maxLength={100}
           />
 
           {/* Secret planning toggle */}

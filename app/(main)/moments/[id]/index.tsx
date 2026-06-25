@@ -1,8 +1,15 @@
 /**
  * MomentDetailScreen — Invitation-first design.
  *
- * Primary view: RSVP summary + guest list with notes.
- * Secondary: Album (post-event photos), Secret planning (organizers only).
+ * Features:
+ * - Location + countdown in hero
+ * - Reaction strip (🎉 🔥 ❤️)
+ * - RSVP: Going / Can't make it with guest note
+ * - Guest list with name, rsvp badge, note
+ * - Bring-something / contributions list
+ * - Nudge button (host only) — notifies pending guests
+ * - Album (secondary, via header icon)
+ * - Secret planning (secondary, via header icon)
  */
 import { useState, useEffect } from "react";
 import {
@@ -17,6 +24,8 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Linking,
+  Modal,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
@@ -38,13 +47,22 @@ const MUTED  = "rgba(244,245,240,0.5)";
 const FAINT  = "rgba(244,245,240,0.18)";
 const SAGE   = "#8FA876";
 
-type Tab = "guests" | "album" | "planning";
+const REACTIONS = ["🎉", "🔥", "❤️", "😂", "👏"];
 
+type Tab = "guests" | "album" | "planning";
 type Attendee = {
   user_id: string;
   rsvp_status: "invited" | "going" | "maybe" | "declined";
   note?: string | null;
   user?: { display_name: string; avatar_url: string | null };
+};
+type Contribution = {
+  id: string;
+  label: string;
+  claimed_by: string | null;
+  created_by: string;
+  claimer?: { display_name: string; avatar_url: string | null } | null;
+  creator?: { display_name: string } | null;
 };
 
 export default function MomentDetailScreen() {
@@ -52,19 +70,26 @@ export default function MomentDetailScreen() {
   const { session } = useAuthStore();
   const userId = session?.user.id;
 
-  const [moment, setMoment]         = useState<Moment | null>(null);
-  const [attendees, setAttendees]   = useState<Attendee[]>([]);
-  const [photos, setPhotos]         = useState<Photo[]>([]);
-  const [photoUrls, setPhotoUrls]   = useState<Record<string, string>>({});
-  const [loading, setLoading]       = useState(true);
-  const [activeTab, setActiveTab]   = useState<Tab>("guests");
-  const [isPlanner, setIsPlanner]   = useState(false);
-  const [myNote, setMyNote]         = useState("");
-  const [savingNote, setSavingNote] = useState(false);
-  const [rsvpLoading, setRsvpLoading] = useState(false);
+  const [moment, setMoment]               = useState<Moment | null>(null);
+  const [attendees, setAttendees]         = useState<Attendee[]>([]);
+  const [reactions, setReactions]         = useState<Record<string, number>>({});
+  const [myReactions, setMyReactions]     = useState<Set<string>>(new Set());
+  const [contributions, setContributions] = useState<Contribution[]>([]);
+  const [photos, setPhotos]               = useState<Photo[]>([]);
+  const [photoUrls, setPhotoUrls]         = useState<Record<string, string>>({});
+  const [loading, setLoading]             = useState(true);
+  const [activeTab, setActiveTab]         = useState<Tab>("guests");
+  const [isPlanner, setIsPlanner]         = useState(false);
+  const [myNote, setMyNote]               = useState("");
+  const [savingNote, setSavingNote]       = useState(false);
+  const [rsvpLoading, setRsvpLoading]     = useState(false);
+  const [nudging, setNudging]             = useState(false);
+  const [showAddItem, setShowAddItem]     = useState(false);
+  const [newItem, setNewItem]             = useState("");
 
   const myAttendee = attendees.find(a => a.user_id === userId);
   const myRsvp = myAttendee?.rsvp_status ?? null;
+  const isHost = moment?.created_by === userId;
 
   const going    = attendees.filter(a => a.rsvp_status === "going");
   const declined = attendees.filter(a => a.rsvp_status === "declined");
@@ -73,23 +98,38 @@ export default function MomentDetailScreen() {
   useEffect(() => { load(); }, [id]);
 
   const load = async () => {
-    const [momentRes, attendeesRes, photosRes, plannerRes] = await Promise.all([
-      supabase.from("moments").select("*").eq("id", id).single(),
-      supabase.from("moment_attendees").select("*, user:profiles(*)").eq("moment_id", id),
-      supabase.from("photos").select("*").eq("moment_id", id).order("created_at"),
-      supabase.from("moment_attendees").select("user_id").eq("moment_id", id).eq("user_id", userId ?? ""),
-    ]);
+    const [momentRes, attendeesRes, reactionsRes, myReactRes, contribRes, photosRes, plannerRes] =
+      await Promise.all([
+        supabase.from("moments").select("*").eq("id", id).single(),
+        supabase.from("moment_attendees").select("*, user:profiles(*)").eq("moment_id", id),
+        supabase.from("moment_reactions").select("emoji").eq("moment_id", id),
+        supabase.from("moment_reactions").select("emoji").eq("moment_id", id).eq("user_id", userId ?? ""),
+        supabase.from("moment_contributions")
+          .select("*, claimer:profiles!claimed_by(*), creator:profiles!created_by(display_name)")
+          .eq("moment_id", id)
+          .order("created_at"),
+        supabase.from("photos").select("*").eq("moment_id", id).order("created_at"),
+        supabase.from("moment_attendees").select("user_id").eq("moment_id", id).eq("user_id", userId ?? ""),
+      ]);
 
     setMoment(momentRes.data);
+
     const fetched = (attendeesRes.data ?? []) as Attendee[];
     setAttendees(fetched);
-
     const me = fetched.find(a => a.user_id === userId);
     if (me?.note) setMyNote(me.note);
 
+    // Tally reactions
+    const tally: Record<string, number> = {};
+    (reactionsRes.data ?? []).forEach((r: any) => {
+      tally[r.emoji] = (tally[r.emoji] ?? 0) + 1;
+    });
+    setReactions(tally);
+    setMyReactions(new Set((myReactRes.data ?? []).map((r: any) => r.emoji)));
+
+    setContributions((contribRes.data ?? []) as Contribution[]);
     setIsPlanner((plannerRes.data ?? []).length > 0);
 
-    // Load photos
     const fetchedPhotos = (photosRes.data ?? []) as Photo[];
     setPhotos(fetchedPhotos);
     const urlMap: Record<string, string> = {};
@@ -100,6 +140,17 @@ export default function MomentDetailScreen() {
     setPhotoUrls(urlMap);
 
     setLoading(false);
+  };
+
+  const toggleReaction = async (emoji: string) => {
+    if (!userId) return;
+    if (myReactions.has(emoji)) {
+      await supabase.from("moment_reactions").delete()
+        .eq("moment_id", id).eq("user_id", userId).eq("emoji", emoji);
+    } else {
+      await supabase.from("moment_reactions").upsert({ moment_id: id, user_id: userId, emoji });
+    }
+    load();
   };
 
   const setRsvp = async (status: "going" | "declined") => {
@@ -127,6 +178,46 @@ export default function MomentDetailScreen() {
     load();
   };
 
+  const nudgePending = async () => {
+    if (!userId || pending.length === 0) return;
+    setNudging(true);
+    // Insert a notification for each pending attendee
+    await supabase.from("notifications").insert(
+      pending.map(a => ({
+        user_id: a.user_id,
+        type: "moment_nudge",
+        title: `Are you coming to ${moment?.title ?? "the event"}?`,
+        body: "The host wants to know — are you going?",
+        data: { moment_id: id },
+      }))
+    );
+    setNudging(false);
+    Alert.alert("Nudge sent!", `${pending.length} pending guest${pending.length > 1 ? "s" : ""} notified.`);
+  };
+
+  const claimContribution = async (contrib: Contribution) => {
+    if (!userId) return;
+    if (contrib.claimed_by && contrib.claimed_by !== userId) {
+      Alert.alert("Already claimed", `${contrib.claimer?.display_name} is already bringing this.`);
+      return;
+    }
+    const newVal = contrib.claimed_by === userId ? null : userId;
+    await supabase.from("moment_contributions").update({ claimed_by: newVal }).eq("id", contrib.id);
+    load();
+  };
+
+  const addContribution = async () => {
+    if (!userId || !newItem.trim()) return;
+    await supabase.from("moment_contributions").insert({
+      moment_id: id,
+      label: newItem.trim(),
+      created_by: userId,
+    });
+    setNewItem("");
+    setShowAddItem(false);
+    load();
+  };
+
   const addPhoto = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -134,33 +225,40 @@ export default function MomentDetailScreen() {
       quality: 0.85,
     });
     if (result.canceled) return;
-
     for (const asset of result.assets) {
       const ext = asset.uri.split(".").pop()?.toLowerCase() ?? "jpg";
       const mime = ext === "png" ? "image/png" : "image/jpeg";
       const fileName = `${id}/${Date.now()}.${ext}`;
       const storagePath = `${userId!}/${fileName}`;
-
       const form = new FormData();
       form.append("file", { uri: asset.uri, type: mime, name: fileName } as any);
-
-      const { error } = await supabase.storage
-        .from("photos")
+      const { error } = await supabase.storage.from("photos")
         .upload(storagePath, form as any, { contentType: mime, upsert: false });
-
       if (!error) {
-        await supabase.from("photos").insert({
-          moment_id: id, uploader_id: userId!, image_url: storagePath,
-        });
+        await supabase.from("photos").insert({ moment_id: id, uploader_id: userId!, image_url: storagePath });
       }
     }
     load();
   };
 
-  const formatDate = (d: string | null) => {
-    if (!d) return null;
-    return new Date(d).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const openMaps = (location: string) => {
+    const encoded = encodeURIComponent(location);
+    Linking.openURL(`https://maps.apple.com/?q=${encoded}`).catch(() =>
+      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encoded}`)
+    );
   };
+
+  const countdown = (dateStr: string | null): string | null => {
+    if (!dateStr) return null;
+    const diff = Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
+    if (diff < 0) return null;
+    if (diff === 0) return "Today!";
+    if (diff === 1) return "Tomorrow!";
+    return `In ${diff} days`;
+  };
+
+  const formatDate = (d: string | null) =>
+    d ? new Date(d).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : null;
 
   if (loading) {
     return (
@@ -170,7 +268,8 @@ export default function MomentDetailScreen() {
     );
   }
 
-  const dateStr = formatDate(moment?.event_date ?? null);
+  const dateStr    = formatDate(moment?.event_date ?? null);
+  const countdownStr = countdown(moment?.event_date ?? null);
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -181,6 +280,15 @@ export default function MomentDetailScreen() {
         </TouchableOpacity>
         <View style={{ flex: 1 }} />
         <View style={{ flexDirection: "row", gap: 8 }}>
+          {isHost && pending.length > 0 && (
+            <TouchableOpacity style={[styles.headerIconBtn, { borderColor: "rgba(143,168,118,0.3)" }]}
+              onPress={nudgePending} disabled={nudging}>
+              {nudging
+                ? <ActivityIndicator size="small" color={SAGE} />
+                : <Ionicons name="notifications-outline" size={18} color={SAGE} />
+              }
+            </TouchableOpacity>
+          )}
           {isPlanner && (
             <TouchableOpacity style={styles.headerIconBtn} onPress={() => setActiveTab("planning")}>
               <Ionicons name="lock-closed-outline" size={18} color={SAGE} />
@@ -195,15 +303,49 @@ export default function MomentDetailScreen() {
       {/* ── Guests / Invitation tab (primary) ── */}
       {activeTab === "guests" && (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+
           {/* Event hero */}
           <View style={styles.hero}>
             <Text style={styles.heroTitle}>{moment?.title ?? "Moment"}</Text>
-            {dateStr && (
-              <View style={styles.datePill}>
-                <Ionicons name="calendar-outline" size={13} color={SAGE} />
-                <Text style={styles.datePillText}>{dateStr}</Text>
-              </View>
+            <View style={styles.heroPills}>
+              {dateStr && (
+                <View style={styles.pill}>
+                  <Ionicons name="calendar-outline" size={13} color={SAGE} />
+                  <Text style={styles.pillText}>{dateStr}</Text>
+                </View>
+              )}
+              {countdownStr && (
+                <View style={[styles.pill, { backgroundColor: "rgba(74,222,128,0.12)", borderColor: "rgba(74,222,128,0.25)" }]}>
+                  <Text style={[styles.pillText, { color: Colors.green }]}>{countdownStr}</Text>
+                </View>
+              )}
+            </View>
+            {moment?.location && (
+              <TouchableOpacity style={styles.locationRow} onPress={() => openMaps(moment.location!)}>
+                <Ionicons name="location-outline" size={14} color={MUTED} />
+                <Text style={styles.locationText}>{moment.location}</Text>
+                <Ionicons name="open-outline" size={12} color={FAINT} />
+              </TouchableOpacity>
             )}
+          </View>
+
+          {/* Reactions */}
+          <View style={styles.reactionsRow}>
+            {REACTIONS.map(emoji => {
+              const count = reactions[emoji] ?? 0;
+              const mine = myReactions.has(emoji);
+              return (
+                <TouchableOpacity
+                  key={emoji}
+                  style={[styles.reactionBtn, mine && styles.reactionBtnActive]}
+                  onPress={() => toggleReaction(emoji)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.reactionEmoji}>{emoji}</Text>
+                  {count > 0 && <Text style={[styles.reactionCount, mine && { color: SAGE }]}>{count}</Text>}
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {/* RSVP counts */}
@@ -224,7 +366,7 @@ export default function MomentDetailScreen() {
             </View>
           </View>
 
-          {/* My RSVP buttons */}
+          {/* My RSVP */}
           <View style={styles.rsvpSection}>
             <Text style={styles.rsvpPrompt}>Are you going?</Text>
             <View style={styles.rsvpBtns}>
@@ -235,7 +377,7 @@ export default function MomentDetailScreen() {
                 activeOpacity={0.75}
               >
                 {myRsvp === "going" ? (
-                  <LinearGradient colors={["rgba(74,222,128,0.3)", "rgba(74,222,128,0.15)"]} style={styles.rsvpBtnInner}>
+                  <LinearGradient colors={["rgba(74,222,128,0.25)", "rgba(74,222,128,0.12)"]} style={styles.rsvpBtnInner}>
                     <Ionicons name="checkmark-circle" size={20} color={Colors.green} />
                     <Text style={[styles.rsvpBtnText, { color: Colors.green }]}>I'm going!</Text>
                   </LinearGradient>
@@ -267,12 +409,11 @@ export default function MomentDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* My note */}
             {myRsvp && (
               <View style={styles.noteBox}>
                 <TextInput
                   style={styles.noteInput}
-                  placeholder={myRsvp === "going" ? "Leave a message for the group..." : "Let them know..."}
+                  placeholder={myRsvp === "going" ? "Leave a message... 🥳" : "Let them know..."}
                   placeholderTextColor={FAINT}
                   value={myNote}
                   onChangeText={setMyNote}
@@ -291,10 +432,56 @@ export default function MomentDetailScreen() {
             )}
           </View>
 
+          {/* Bring something list */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionLabel}>BRING SOMETHING</Text>
+              <TouchableOpacity style={styles.sectionAddBtn} onPress={() => setShowAddItem(true)}>
+                <Ionicons name="add" size={16} color={SAGE} />
+                <Text style={styles.sectionAddText}>Add item</Text>
+              </TouchableOpacity>
+            </View>
+            {contributions.length === 0 ? (
+              <TouchableOpacity style={styles.emptyContrib} onPress={() => setShowAddItem(true)}>
+                <Text style={styles.emptyContribText}>
+                  + Add something to the list — wine, dessert, games...
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              contributions.map((c) => {
+                const isMine = c.claimed_by === userId;
+                const taken  = !!c.claimed_by && !isMine;
+                return (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={[styles.contribRow, taken && styles.contribRowTaken]}
+                    onPress={() => claimContribution(c)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[styles.contribCheck, isMine && styles.contribCheckMine, taken && styles.contribCheckTaken]}>
+                      {(isMine || taken) && <Ionicons name="checkmark" size={13} color={isMine ? SAGE : MUTED} />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.contribLabel, taken && { color: MUTED }]}>{c.label}</Text>
+                      {c.claimer && (
+                        <Text style={styles.contribClaimer}>
+                          {isMine ? "You're bringing this" : `${c.claimer.display_name} is bringing this`}
+                        </Text>
+                      )}
+                    </View>
+                    {!c.claimed_by && (
+                      <Text style={styles.contribClaim}>Claim</Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </View>
+
           {/* Guest list */}
           {attendees.length > 0 && (
-            <View style={styles.guestList}>
-              <Text style={styles.guestListLabel}>GUESTS</Text>
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>GUESTS</Text>
               {going.concat(pending).concat(declined).map((a) => (
                 <View key={a.user_id} style={styles.guestRow}>
                   <Avatar uri={a.user?.avatar_url ?? null} name={a.user?.display_name ?? "?"} size={40} />
@@ -304,16 +491,16 @@ export default function MomentDetailScreen() {
                   </View>
                   <View style={[
                     styles.rsvpTag,
-                    a.rsvp_status === "going" ? styles.rsvpTagGoing :
-                    a.rsvp_status === "declined" ? styles.rsvpTagNo : styles.rsvpTagPending
+                    a.rsvp_status === "going"    ? styles.rsvpTagGoing :
+                    a.rsvp_status === "declined" ? styles.rsvpTagNo   : styles.rsvpTagPending
                   ]}>
                     <Text style={[
                       styles.rsvpTagText,
-                      a.rsvp_status === "going" ? { color: Colors.green } :
-                      a.rsvp_status === "declined" ? { color: "#FCA5A5" } : { color: MUTED }
+                      a.rsvp_status === "going"    ? { color: Colors.green } :
+                      a.rsvp_status === "declined" ? { color: "#FCA5A5" }   : { color: MUTED }
                     ]}>
-                      {a.rsvp_status === "going" ? "Going" :
-                       a.rsvp_status === "declined" ? "Can't make it" : "Pending"}
+                      {a.rsvp_status === "going"    ? "Going" :
+                       a.rsvp_status === "declined" ? "Can't" : "Pending"}
                     </Text>
                   </View>
                 </View>
@@ -350,7 +537,7 @@ export default function MomentDetailScreen() {
         </View>
       )}
 
-      {/* ── Secret planning tab ── */}
+      {/* ── Secret Planning tab ── */}
       {activeTab === "planning" && (
         <View style={{ flex: 1 }}>
           <View style={styles.subHeader}>
@@ -371,6 +558,33 @@ export default function MomentDetailScreen() {
           </View>
         </View>
       )}
+
+      {/* ── Add item modal ── */}
+      <Modal visible={showAddItem} transparent animationType="slide">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowAddItem(false)} />
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.addItemSheet}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.addItemTitle}>Add to the list</Text>
+          <TextInput
+            style={styles.addItemInput}
+            placeholder="e.g. Wine, Dessert, Board game..."
+            placeholderTextColor={FAINT}
+            value={newItem}
+            onChangeText={setNewItem}
+            autoFocus
+            maxLength={60}
+            returnKeyType="done"
+            onSubmitEditing={addContribution}
+          />
+          <TouchableOpacity
+            style={[styles.addItemBtn, !newItem.trim() && { opacity: 0.4 }]}
+            onPress={addContribution}
+            disabled={!newItem.trim()}
+          >
+            <Text style={styles.addItemBtnText}>Add to list</Text>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -378,13 +592,9 @@ export default function MomentDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
 
-  // Header
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 8,
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 16, paddingTop: 60, paddingBottom: 8,
   },
   backBtn: { padding: 4 },
   headerIconBtn: {
@@ -394,130 +604,149 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
 
-  // Sub-header (album / planning)
   subHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: BORDER,
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: BORDER,
   },
   subHeaderTitle: { fontSize: 16, fontWeight: "700", color: TEXT },
 
   // Hero
-  hero: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 },
+  hero: { paddingHorizontal: 22, paddingTop: 8, paddingBottom: 16 },
   heroTitle: {
-    fontSize: 32, fontWeight: "800", color: TEXT,
-    letterSpacing: -0.6, marginBottom: 12,
+    fontSize: 30, fontWeight: "800", color: TEXT,
+    letterSpacing: -0.5, marginBottom: 12,
   },
-  datePill: {
-    flexDirection: "row", alignItems: "center", gap: 6,
+  heroPills: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 10 },
+  pill: {
+    flexDirection: "row", alignItems: "center", gap: 5,
     backgroundColor: "rgba(143,168,118,0.12)",
     borderWidth: 1, borderColor: "rgba(143,168,118,0.25)",
-    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7,
-    alignSelf: "flex-start",
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6,
   },
-  datePillText: { fontSize: 13, fontWeight: "600", color: SAGE },
+  pillText: { fontSize: 13, fontWeight: "600", color: SAGE },
+  locationRow: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+  },
+  locationText: { fontSize: 13, color: MUTED, flex: 1 },
+
+  // Reactions
+  reactionsRow: {
+    flexDirection: "row", gap: 8,
+    paddingHorizontal: 22, paddingBottom: 16, flexWrap: "wrap",
+  },
+  reactionBtn: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    backgroundColor: CARD, borderRadius: 20, borderWidth: 1, borderColor: BORDER,
+    paddingHorizontal: 12, paddingVertical: 8,
+  },
+  reactionBtnActive: {
+    borderColor: "rgba(143,168,118,0.35)",
+    backgroundColor: "rgba(143,168,118,0.1)",
+  },
+  reactionEmoji: { fontSize: 18 },
+  reactionCount: { fontSize: 13, fontWeight: "700", color: MUTED },
 
   // RSVP counts
   countsRow: {
-    flexDirection: "row",
-    marginHorizontal: 20,
-    backgroundColor: CARD,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: BORDER,
-    paddingVertical: 18,
-    marginBottom: 24,
+    flexDirection: "row", marginHorizontal: 20,
+    backgroundColor: CARD, borderRadius: 20, borderWidth: 1, borderColor: BORDER,
+    paddingVertical: 18, marginBottom: 20,
   },
   countBox: { flex: 1, alignItems: "center" },
-  countNum: { fontSize: 28, fontWeight: "800", letterSpacing: -0.5 },
+  countNum: { fontSize: 26, fontWeight: "800", letterSpacing: -0.5 },
   countLabel: { fontSize: 11, color: MUTED, marginTop: 2, letterSpacing: 0.3 },
   countDivider: { width: 1, backgroundColor: BORDER },
 
   // RSVP buttons
-  rsvpSection: { paddingHorizontal: 20, marginBottom: 32 },
+  rsvpSection: { paddingHorizontal: 20, marginBottom: 28 },
   rsvpPrompt: {
-    fontSize: 13, fontWeight: "700", color: MUTED,
-    letterSpacing: 0.8, textTransform: "uppercase",
-    marginBottom: 14,
+    fontSize: 12, fontWeight: "700", color: MUTED,
+    letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 12,
   },
-  rsvpBtns: { flexDirection: "row", gap: 10, marginBottom: 14 },
+  rsvpBtns: { flexDirection: "row", gap: 10, marginBottom: 12 },
   rsvpBtn: {
-    flex: 1,
-    borderRadius: 18,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: CARD,
+    flex: 1, borderRadius: 18, overflow: "hidden",
+    borderWidth: 1, borderColor: BORDER, backgroundColor: CARD,
   },
-  rsvpBtnGoing: { borderColor: "rgba(74,222,128,0.35)" },
-  rsvpBtnDeclined: { borderColor: "rgba(248,113,113,0.3)" },
+  rsvpBtnGoing:   { borderColor: "rgba(74,222,128,0.35)" },
+  rsvpBtnDeclined:{ borderColor: "rgba(248,113,113,0.3)" },
   rsvpBtnInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 8, paddingVertical: 15, paddingHorizontal: 12,
   },
   rsvpBtnText: { fontSize: 14, fontWeight: "700", color: MUTED },
 
-  // Note input
   noteBox: {
-    backgroundColor: CARD,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: BORDER,
-    padding: 14,
+    backgroundColor: CARD, borderRadius: 16,
+    borderWidth: 1, borderColor: BORDER, padding: 14,
   },
-  noteInput: {
-    fontSize: 14, color: TEXT,
-    minHeight: 44,
-    textAlignVertical: "top",
-  },
+  noteInput: { fontSize: 14, color: TEXT, minHeight: 40, textAlignVertical: "top" },
   noteSaveBtn: {
-    alignSelf: "flex-end",
-    marginTop: 8,
-    backgroundColor: "rgba(143,168,118,0.15)",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderWidth: 1,
-    borderColor: "rgba(143,168,118,0.3)",
+    alignSelf: "flex-end", marginTop: 8,
+    backgroundColor: "rgba(143,168,118,0.15)", borderRadius: 12,
+    paddingHorizontal: 16, paddingVertical: 7,
+    borderWidth: 1, borderColor: "rgba(143,168,118,0.3)",
   },
   noteSaveBtnText: { fontSize: 13, fontWeight: "700", color: SAGE },
 
-  // Guest list
-  guestList: { paddingHorizontal: 20 },
-  guestListLabel: {
-    fontSize: 10, fontWeight: "700", color: FAINT,
-    letterSpacing: 1.4, marginBottom: 12,
+  // Sections
+  section: { paddingHorizontal: 20, marginBottom: 28 },
+  sectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  sectionLabel: {
+    flex: 1, fontSize: 10, fontWeight: "700",
+    color: FAINT, letterSpacing: 1.4,
   },
+  sectionAddBtn: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "rgba(143,168,118,0.1)",
+    borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5,
+    borderWidth: 1, borderColor: "rgba(143,168,118,0.25)",
+  },
+  sectionAddText: { fontSize: 12, fontWeight: "700", color: SAGE },
+
+  // Contributions
+  emptyContrib: {
+    backgroundColor: CARD, borderRadius: 16, borderWidth: 1,
+    borderColor: BORDER, borderStyle: "dashed",
+    padding: 18, alignItems: "center",
+  },
+  emptyContribText: { color: FAINT, fontSize: 13, textAlign: "center" },
+  contribRow: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    backgroundColor: CARD, borderRadius: 16, borderWidth: 1,
+    borderColor: BORDER, padding: 14, marginBottom: 8,
+  },
+  contribRowTaken: { opacity: 0.65 },
+  contribCheck: {
+    width: 26, height: 26, borderRadius: 13,
+    borderWidth: 1.5, borderColor: BORDER,
+    alignItems: "center", justifyContent: "center",
+  },
+  contribCheckMine: { borderColor: SAGE, backgroundColor: "rgba(143,168,118,0.15)" },
+  contribCheckTaken: { borderColor: FAINT },
+  contribLabel: { fontSize: 15, fontWeight: "600", color: TEXT },
+  contribClaimer: { fontSize: 12, color: MUTED, marginTop: 2 },
+  contribClaim: { fontSize: 12, fontWeight: "700", color: SAGE },
+
+  // Guests
   guestRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: CARD,
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: BORDER,
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: CARD, borderRadius: 18, borderWidth: 1,
+    borderColor: BORDER, padding: 14, marginBottom: 8,
   },
   guestName: { fontSize: 15, fontWeight: "600", color: TEXT },
   guestNote: { fontSize: 12, color: MUTED, marginTop: 3, lineHeight: 17 },
   rsvpTag: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
-  rsvpTagGoing: { backgroundColor: "rgba(74,222,128,0.12)" },
-  rsvpTagNo: { backgroundColor: "rgba(248,113,113,0.1)" },
+  rsvpTagGoing:   { backgroundColor: "rgba(74,222,128,0.12)" },
+  rsvpTagNo:      { backgroundColor: "rgba(248,113,113,0.1)" },
   rsvpTagPending: { backgroundColor: "rgba(255,255,255,0.05)" },
-  rsvpTagText: { fontSize: 11, fontWeight: "700" },
+  rsvpTagText:    { fontSize: 11, fontWeight: "700" },
 
   // Album
   grid: { flexDirection: "row", flexWrap: "wrap", padding: 4, gap: 4 },
   addPhotoBtn: {
-    width: "47%", aspectRatio: 1,
-    backgroundColor: CARD, borderRadius: 14,
+    width: "47%", aspectRatio: 1, backgroundColor: CARD, borderRadius: 14,
     alignItems: "center", justifyContent: "center",
     borderWidth: 1, borderColor: BORDER, borderStyle: "dashed", margin: 4,
   },
@@ -526,5 +755,33 @@ const styles = StyleSheet.create({
 
   // Secret
   secretTitle: { fontSize: 20, fontWeight: "700", color: TEXT, marginBottom: 8, textAlign: "center" },
-  secretBody: { fontSize: 14, color: MUTED, textAlign: "center", lineHeight: 22 },
+  secretBody:  { fontSize: 14, color: MUTED, textAlign: "center", lineHeight: 22 },
+
+  // Add item modal
+  modalOverlay: {
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  addItemSheet: {
+    backgroundColor: "#141613",
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingHorizontal: 24, paddingBottom: 48, paddingTop: 16,
+    marginTop: "auto",
+  },
+  sheetHandle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignSelf: "center", marginBottom: 24,
+  },
+  addItemTitle: { fontSize: 20, fontWeight: "800", color: TEXT, marginBottom: 20 },
+  addItemInput: {
+    backgroundColor: CARD, borderRadius: 16, borderWidth: 1, borderColor: BORDER,
+    paddingHorizontal: 18, paddingVertical: 15,
+    fontSize: 16, color: TEXT, marginBottom: 16,
+  },
+  addItemBtn: {
+    backgroundColor: SAGE, borderRadius: 16,
+    paddingVertical: 16, alignItems: "center",
+  },
+  addItemBtnText: { fontSize: 15, fontWeight: "800", color: BG },
 });
