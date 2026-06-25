@@ -79,6 +79,14 @@ export function useCircles() {
     const { data: { session: freshSession }, error: sessionError } = await supabase.auth.getSession();
     if (sessionError || !freshSession) throw new Error("Session expired — please sign out and sign back in.");
 
+    // Force set the session so the JWT is definitely in the Authorization header
+    await supabase.auth.setSession({
+      access_token: freshSession.access_token,
+      refresh_token: freshSession.refresh_token,
+    });
+
+    console.log("[createCircle] user.id:", freshSession.user.id);
+
     const { data, error } = await supabase
       .from("circles")
       .insert({ name, icon, created_by: freshSession.user.id })

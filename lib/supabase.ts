@@ -1,15 +1,43 @@
 import "react-native-url-polyfill/auto";
 import { createClient } from "@supabase/supabase-js";
 import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Database } from "@/types/database";
 
 // ---------------------------------------------------------------------------
-// SecureStore adapter — Supabase uses this to persist the session token
+// Storage adapter — SecureStore has a 2KB limit per value which is too small
+// for Supabase JWTs. We use a hybrid: try SecureStore first, fall back to
+// AsyncStorage for large values (the JWT token).
 // ---------------------------------------------------------------------------
-const ExpoSecureStoreAdapter = {
-  getItem: (key: string) => SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
-  removeItem: (key: string) => SecureStore.deleteItemAsync(key),
+const LARGE_VALUE_THRESHOLD = 1800; // bytes — SecureStore limit is ~2048
+
+const StorageAdapter = {
+  getItem: async (key: string): Promise<string | null> => {
+    // Check AsyncStorage first (large values stored here)
+    const asyncVal = await AsyncStorage.getItem(key);
+    if (asyncVal !== null) return asyncVal;
+    // Fall back to SecureStore (small values)
+    try {
+      return await SecureStore.getItemAsync(key);
+    } catch {
+      return null;
+    }
+  },
+  setItem: async (key: string, value: string): Promise<void> => {
+    if (value.length > LARGE_VALUE_THRESHOLD) {
+      await AsyncStorage.setItem(key, value);
+    } else {
+      try {
+        await SecureStore.setItemAsync(key, value);
+      } catch {
+        await AsyncStorage.setItem(key, value);
+      }
+    }
+  },
+  removeItem: async (key: string): Promise<void> => {
+    await AsyncStorage.removeItem(key);
+    try { await SecureStore.deleteItemAsync(key); } catch {}
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -30,7 +58,7 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 // ---------------------------------------------------------------------------
 export const supabase = createClient<Database, "friendspot">(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    storage: ExpoSecureStoreAdapter,
+    storage: StorageAdapter,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
