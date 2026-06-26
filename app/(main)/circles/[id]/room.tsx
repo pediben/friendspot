@@ -1,89 +1,103 @@
 /**
  * Drop-in Room Screen — persistent voice room for a circle.
  *
- * Uses the low-level LiveKit Room API directly (not <LiveKitRoom> provider)
- * so we can handle reconnects and audio session lifecycle manually.
- *
  * Flow:
  *   1. Configure iOS/Android audio session
- *   2. Fetch LiveKit token (Edge Function validates circle membership)
+ *   2. Fetch LiveKit token via Edge Function (validates circle membership)
  *   3. Connect room, enable mic
  *   4. Show participant grid + mic toggle + leave
  *   5. On unexpected disconnect: 40-second reconnect window, then "failed" UI
  */
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
   ActivityIndicator,
   Alert,
   ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Room, RoomEvent, Participant } from "livekit-client";
-
-// @livekit/react-native uses native modules not available in Expo Go.
-// Dynamically require so the module error is caught at runtime, not import time.
-let useParticipants: (opts?: { room?: Room }) => { participants: Participant[] } =
-  () => ({ participants: [] });
-let AudioSession: { startAudioSession: () => Promise<void>; stopAudioSession: () => Promise<void> } = {
-  startAudioSession: async () => {},
-  stopAudioSession: async () => {},
-};
-try {
-  const lkRN = require("@livekit/react-native");
-  useParticipants = lkRN.useParticipants;
-  AudioSession = lkRN.AudioSession;
-} catch {
-  console.warn("@livekit/react-native not available (Expo Go). Voice rooms disabled.");
-}
+import { Room, RoomEvent } from "livekit-client";
+import type { Participant } from "livekit-client";
+import { AudioSession, useParticipants } from "@/lib/livekit-rn";
 import { getCircleRoomToken } from "@/lib/livekit";
 import { Avatar } from "@/components/ui/Avatar";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 type ReconnectState = "none" | "reconnecting" | "failed";
+
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export default function DropInRoomScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const [room] = useState(() => new Room());
-  const [loading, setLoading]         = useState(true);
-  const [micEnabled, setMicEnabled]   = useState(true);
-  const [reconnect, setReconnect]     = useState<ReconnectState>("none");
+  const [room] = useState(() => new Room({ adaptiveStream: false, dynacast: false }));
+  const [loading, setLoading]       = useState(true);
+  const [micEnabled, setMicEnabled] = useState(true);
+  const [reconnect, setReconnect]   = useState<ReconnectState>("none");
 
   const intentionalLeave = useRef(false);
   const reconnectTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const { participants } = useParticipants({ room });
 
-  // ── Setup: audio + token + connect ──────────────────────────────────────
+  // ── Connect ──────────────────────────────────────────────────────────────────
   const joinRoom = useCallback(async () => {
     setLoading(true);
     try {
+      // 20-second timeout prevents infinite "Joining…" spinner if LiveKit is
+      // unreachable (e.g. WebRTC ICE gathering stalls on a restrictive network).
+      const makeTimeout = (ms: number) =>
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`Connection timed out after ${ms / 1000}s. Check your connection and try again.`)),
+            ms
+          )
+        );
+
       await AudioSession.startAudioSession();
 
-      const { token, url } = await getCircleRoomToken(id);
-      await room.connect(url, token, { autoSubscribe: true });
+      const { token, url } = await Promise.race([
+        getCircleRoomToken(id),
+        makeTimeout(10_000),
+      ]);
+
+      await Promise.race([
+        room.connect(url, token, { autoSubscribe: true }),
+        makeTimeout(20_000),
+      ]);
+
       await room.localParticipant.setMicrophoneEnabled(true);
       setMicEnabled(true);
     } catch (e: any) {
-      Alert.alert("Couldn't join room", e.message, [{ text: "OK", onPress: () => router.back() }]);
+      console.error("[room] join failed:", e.message);
+      Alert.alert("Couldn't join room", e.message, [
+        { text: "OK", onPress: () => router.back() },
+      ]);
     } finally {
       setLoading(false);
     }
   }, [id, room]);
 
-  // ── Room event listeners ─────────────────────────────────────────────────
+  // ── Room event listeners ──────────────────────────────────────────────────
   useEffect(() => {
     const onDisconnected = () => {
       if (intentionalLeave.current) return;
       setReconnect("reconnecting");
       reconnectTimer.current = setTimeout(() => setReconnect("failed"), 40_000);
     };
+
     const onReconnected = () => {
-      if (reconnectTimer.current) { clearTimeout(reconnectTimer.current); reconnectTimer.current = null; }
+      if (reconnectTimer.current) {
+        clearTimeout(reconnectTimer.current);
+        reconnectTimer.current = null;
+      }
       setReconnect("none");
     };
 
@@ -99,9 +113,9 @@ export default function DropInRoomScreen() {
       AudioSession.stopAudioSession();
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
     };
-  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Controls ─────────────────────────────────────────────────────────────
+  // ── Controls ──────────────────────────────────────────────────────────────
   const toggleMic = async () => {
     const next = !micEnabled;
     await room.localParticipant.setMicrophoneEnabled(next);
@@ -115,7 +129,7 @@ export default function DropInRoomScreen() {
     router.back();
   };
 
-  // ── Render: loading ──────────────────────────────────────────────────────
+  // ── Render: loading ───────────────────────────────────────────────────────
   if (loading) {
     return (
       <View style={[styles.container, styles.center]}>
@@ -125,13 +139,16 @@ export default function DropInRoomScreen() {
     );
   }
 
-  // ── Render: reconnect failed ─────────────────────────────────────────────
+  // ── Render: reconnect failed ──────────────────────────────────────────────
   if (reconnect === "failed") {
     return (
       <View style={[styles.container, styles.center]}>
         <Ionicons name="wifi-outline" size={48} color={Colors.orange} />
         <Text style={styles.errorTitle}>Connection lost</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => { setReconnect("none"); joinRoom(); }}>
+        <TouchableOpacity
+          style={styles.retryBtn}
+          onPress={() => { setReconnect("none"); joinRoom(); }}
+        >
           <Text style={styles.retryText}>Try again</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 8 }}>
@@ -141,7 +158,7 @@ export default function DropInRoomScreen() {
     );
   }
 
-  // ── Render: connected ────────────────────────────────────────────────────
+  // ── Render: connected ─────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -174,17 +191,28 @@ export default function DropInRoomScreen() {
           style={[styles.micBtn, micEnabled ? styles.micOn : styles.micOff]}
           onPress={toggleMic}
         >
-          <Ionicons name={micEnabled ? "mic" : "mic-off"} size={26} color={Colors.text} />
+          <Ionicons
+            name={micEnabled ? "mic" : "mic-off"}
+            size={26}
+            color={Colors.text}
+          />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.leaveBtn} onPress={leave}>
-          <Ionicons name="call" size={22} color={Colors.text} style={{ transform: [{ rotate: "135deg" }] }} />
+          <Ionicons
+            name="call"
+            size={22}
+            color={Colors.text}
+            style={{ transform: [{ rotate: "135deg" }] }}
+          />
           <Text style={styles.leaveBtnLabel}>Leave</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
+
+// ─── Participant Tile ─────────────────────────────────────────────────────────
 
 function ParticipantTile({ participant }: { participant: Participant }) {
   return (
@@ -200,12 +228,15 @@ function ParticipantTile({ participant }: { participant: Participant }) {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  center: { alignItems: "center", justifyContent: "center", gap: 16, padding: 32 },
+  center:    { alignItems: "center", justifyContent: "center", gap: 16, padding: 32 },
+
   loadingText: { color: Colors.textMuted, fontSize: 16 },
-  errorTitle: { color: Colors.text, fontSize: 18, fontWeight: "700", textAlign: "center" },
-  leaveLink: { color: Colors.purple, fontSize: 15 },
+  errorTitle:  { color: Colors.text, fontSize: 18, fontWeight: "700", textAlign: "center" },
+  leaveLink:   { color: Colors.purple, fontSize: 15 },
   retryBtn: {
     backgroundColor: Colors.purple,
     paddingHorizontal: 28,
@@ -223,9 +254,9 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 16,
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.green },
-  title: { fontSize: 20, fontWeight: "700", color: Colors.text },
+  headerLeft:   { flexDirection: "row", alignItems: "center", gap: 8 },
+  liveDot:      { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.green },
+  title:        { fontSize: 20, fontWeight: "700", color: Colors.text },
   reconnectBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -255,13 +286,9 @@ const styles = StyleSheet.create({
   },
 
   // Participant tile
-  tile: {
-    width: 90,
-    alignItems: "center",
-    gap: 6,
-  },
+  tile:         { width: 90, alignItems: "center", gap: 6 },
   tileSpeaking: {},
-  tileName: { color: Colors.textMuted, fontSize: 12, fontWeight: "500", textAlign: "center" },
+  tileName:     { color: Colors.textMuted, fontSize: 12, fontWeight: "500", textAlign: "center" },
 
   // Controls
   controls: {
@@ -282,7 +309,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  micOn: { backgroundColor: Colors.bgCard },
+  micOn:  { backgroundColor: Colors.bgCard },
   micOff: { backgroundColor: Colors.red },
   leaveBtn: {
     flexDirection: "row",
