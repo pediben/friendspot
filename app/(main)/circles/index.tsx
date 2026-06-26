@@ -208,9 +208,6 @@ export default function SpotsHomeScreen() {
           )}
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.glassBtn} onPress={() => router.push("/(main)/dms" as any)}>
-            <Ionicons name="chatbubble-ellipses-outline" size={20} color="rgba(244,245,240,0.7)" />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.glassBtn} onPress={() => router.push("/(main)/profile" as any)}>
             <Ionicons name="person-circle-outline" size={20} color="rgba(244,245,240,0.7)" />
           </TouchableOpacity>

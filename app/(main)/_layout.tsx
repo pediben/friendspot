@@ -42,11 +42,11 @@ export default function MainLayout() {
         tabBarItemStyle: { gap: 2 },
       }}
     >
-      {/* ── Tab 1: Spots ── */}
+      {/* ── Tab 1: Spots (friend groups) ── */}
       <Tabs.Screen
         name="circles"
         options={{
-          title: "Friendspots",
+          title: "Spots",
           tabBarIcon: ({ focused }) => (
             <View style={{ opacity: focused ? 1 : 0.35 }}>
               <LogoMark size={26} />
@@ -55,18 +55,7 @@ export default function MainLayout() {
         }}
       />
 
-      {/* ── Tab 2: Moments ── */}
-      <Tabs.Screen
-        name="moments"
-        options={{
-          title: "Moments",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="sparkles-outline" size={size} color={color} />
-          ),
-        }}
-      />
-
-      {/* ── Tab 3: Live (Room + Private) ── */}
+      {/* ── Tab 2: Live (voice rooms) ── */}
       <Tabs.Screen
         name="live"
         options={{
@@ -77,19 +66,40 @@ export default function MainLayout() {
         }}
       />
 
-      {/* ── Tab 4: Money ($) ── */}
+      {/* ── Tab 3: Moments (events + albums) ── */}
+      <Tabs.Screen
+        name="moments"
+        options={{
+          title: "Moments",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="sparkles-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
+      {/* ── Tab 4: Messages ── */}
+      <Tabs.Screen
+        name="dms"
+        options={{
+          title: "Messages",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubble-ellipses-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
+      {/* ── Tab 5: Finance (Bets, Rounds, Expenses) ── */}
       <Tabs.Screen
         name="finance"
         options={{
-          title: "Wallet",
+          title: "Finance",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="wallet-outline" size={size} color={color} />
           ),
         }}
       />
 
-      {/* ── Messages + Me: accessible via top-right header icons ── */}
-      <Tabs.Screen name="dms"     options={{ tabBarButton: () => null }} />
+      {/* ── Profile: accessible via header icon on Spots tab ── */}
       <Tabs.Screen name="profile" options={{ tabBarButton: () => null }} />
 
       {/* ── Hidden routes (no tab bar entry) ── */}

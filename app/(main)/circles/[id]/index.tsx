@@ -127,7 +127,8 @@ export default function CircleDetailScreen() {
             <View style={[styles.featureIconRing, { backgroundColor: "rgba(139,92,246,0.14)", borderColor: "rgba(139,92,246,0.25)" }]}>
               <Ionicons name="lock-closed" size={22} color="#A78BFA" />
             </View>
-            <Text style={styles.featureTitle}>Private{"\n"}Call</Text>
+            <Text style={styles.featureTitle}>Private Call</Text>
+            <Text style={styles.featureSub}>Invite-only room with a passcode</Text>
             <Ionicons name="chevron-forward" size={13} color={FAINT} style={{ alignSelf: "flex-end" }} />
           </TouchableOpacity>
 
@@ -140,6 +141,7 @@ export default function CircleDetailScreen() {
               <Ionicons name="trophy-outline" size={22} color="#FCD34D" />
             </View>
             <Text style={styles.featureTitle}>Bets</Text>
+            <Text style={styles.featureSub}>Make friendly wagers with the group</Text>
             <Ionicons name="chevron-forward" size={13} color={FAINT} style={{ alignSelf: "flex-end" }} />
           </TouchableOpacity>
         </View>
@@ -155,6 +157,7 @@ export default function CircleDetailScreen() {
               <Ionicons name="repeat-outline" size={22} color="#FCA5A5" />
             </View>
             <Text style={styles.featureTitle}>Rounds</Text>
+            <Text style={styles.featureSub}>Take turns picking up the tab</Text>
             <Ionicons name="chevron-forward" size={13} color={FAINT} style={{ alignSelf: "flex-end" }} />
           </TouchableOpacity>
 
@@ -166,7 +169,8 @@ export default function CircleDetailScreen() {
             <View style={[styles.featureIconRing, { backgroundColor: "rgba(74,222,128,0.1)", borderColor: "rgba(74,222,128,0.2)" }]}>
               <Ionicons name="wallet-outline" size={22} color={Colors.green} />
             </View>
-            <Text style={styles.featureTitle}>Split{"\n"}Expenses</Text>
+            <Text style={styles.featureTitle}>Split Expenses</Text>
+            <Text style={styles.featureSub}>Track who owes what, settle up</Text>
             <Ionicons name="chevron-forward" size={13} color={FAINT} style={{ alignSelf: "flex-end" }} />
           </TouchableOpacity>
         </View>
@@ -303,10 +307,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   featureTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
     color: TEXT,
     letterSpacing: -0.2,
+  },
+  featureSub: {
+    fontSize: 11,
+    color: FAINT,
+    lineHeight: 15,
   },
 
   // Voice section

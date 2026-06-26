@@ -100,18 +100,18 @@ function IconMoments() {
 const SLIDES = [
   {
     Icon: IconPrivate,
-    title: "Radically Private",
-    body: "No public profile. No strangers. Only people you invite know you exist.",
+    title: "Private by Design",
+    body: "Create a Spot for any group — friends, family, your crew. Only people you invite can see it.",
   },
   {
     Icon: IconVoice,
-    title: "Voice First",
-    body: "Drop a voice note. Start a room. Your circles are always there, never loud.",
+    title: "Talk, Don't Text",
+    body: "Drop a 60-second voice note or jump into a live room with everyone in your Spot.",
   },
   {
     Icon: IconMoments,
-    title: "Moments, Together",
-    body: "Plan events secretly, share albums, split expenses — all in one place.",
+    title: "Plan Everything Together",
+    body: "Create events, split expenses, run bets, take turns buying rounds — all inside your Spot.",
   },
 ];
 

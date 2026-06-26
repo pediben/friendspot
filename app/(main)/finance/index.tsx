@@ -312,25 +312,22 @@ export default function FinanceScreen() {
         <View style={styles.headerRow}>
           <View style={styles.logoRow}>
             <LogoMark size={28} />
-            <Text style={styles.heading}>Wallet</Text>
+            <Text style={styles.heading}>Finance</Text>
           </View>
           <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.glassBtn} onPress={() => router.push("/(main)/dms" as any)}>
-              <Ionicons name="chatbubble-ellipses-outline" size={20} color="rgba(244,245,240,0.7)" />
-            </TouchableOpacity>
             <TouchableOpacity style={styles.glassBtn} onPress={() => router.push("/(main)/profile" as any)}>
               <Ionicons name="person-circle-outline" size={20} color="rgba(244,245,240,0.7)" />
             </TouchableOpacity>
           </View>
         </View>
-        <Text style={styles.sub}>Split bills, settle bets & track rounds</Text>
+        <Text style={styles.sub}>Bets · Rounds · Split expenses · Settle up</Text>
       </View>
 
       {showHint && (
         <TouchableOpacity style={styles.hintBanner} onPress={dismissHint} activeOpacity={0.8}>
           <Ionicons name="wallet-outline" size={18} color={SAGE} />
           <Text style={styles.hintText}>
-            Wallet tracks who owes what in your group — split bills, settle bets, and buy rounds together.
+            Tap a Spot to access Bets (friendly wagers), Rounds (take turns buying), or Split Expenses (divide bills and settle up).
           </Text>
           <Text style={styles.hintClose}>✕</Text>
         </TouchableOpacity>

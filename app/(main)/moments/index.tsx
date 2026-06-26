@@ -75,9 +75,6 @@ export default function MomentsListScreen() {
 
         {/* Right: actions */}
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.glassBtn} onPress={() => router.push("/(main)/dms" as any)}>
-            <Ionicons name="chatbubble-ellipses-outline" size={20} color="rgba(244,245,240,0.7)" />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.glassBtn} onPress={() => router.push("/(main)/profile" as any)}>
             <Ionicons name="person-circle-outline" size={20} color="rgba(244,245,240,0.7)" />
           </TouchableOpacity>
@@ -99,7 +96,7 @@ export default function MomentsListScreen() {
           {/* Heading */}
           <Text style={styles.emptyTitle}>Your moments live here</Text>
           <Text style={styles.emptyBody}>
-            Create a moment for a trip, birthday, dinner — anything worth remembering.
+            A Moment is an event inside a Spot — birthday, trip, dinner, whatever. Add a photo, track expenses, invite guests secretly.
           </Text>
 
           {/* Free plan badge */}
