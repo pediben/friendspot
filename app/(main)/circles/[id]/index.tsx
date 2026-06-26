@@ -36,7 +36,7 @@ export default function CircleDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuthStore();
   const insets = useSafeAreaInsets();
-  const { notes, loading, sendVoiceNote } = useVoiceNotes(id);
+  const { notes, loading, sendVoiceNote, keyPending } = useVoiceNotes(id);
   const listRef = useRef<FlatList>(null);
   const [spotName, setSpotName] = useState("Spot");
 
@@ -211,7 +211,14 @@ export default function CircleDetailScreen() {
 
       {/* ── Recorder ── */}
       <View style={styles.recorderBar}>
-        <VoiceNoteRecorder onSend={handleSend} />
+        {keyPending ? (
+          <View style={styles.keyPendingBar}>
+            <Ionicons name="lock-closed-outline" size={14} color={FAINT} />
+            <Text style={styles.keyPendingText}>Setting up encryption… hold on</Text>
+          </View>
+        ) : (
+          <VoiceNoteRecorder onSend={handleSend} />
+        )}
       </View>
     </View>
   );
@@ -359,5 +366,16 @@ const styles = StyleSheet.create({
     borderTopColor: BORDER,
     backgroundColor: BG,
     paddingBottom: 24,
+  },
+  keyPendingBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 20,
+  },
+  keyPendingText: {
+    fontSize: 13,
+    color: FAINT,
   },
 });

@@ -125,7 +125,7 @@ export function VoiceNoteRecorder({ onSend }: Props) {
         <View style={styles.status}>
           <View style={styles.dot} />
           <Text style={styles.duration}>{formatDuration(durationMs)}</Text>
-          <Text style={styles.hint}>Release to send · Slide up to cancel</Text>
+          <Text style={styles.hint}>Release to send</Text>
         </View>
       )}
 

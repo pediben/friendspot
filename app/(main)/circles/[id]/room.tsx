@@ -126,8 +126,12 @@ export default function DropInRoomScreen() {
   // ── Controls ──────────────────────────────────────────────────────────────
   const toggleMic = async () => {
     const next = !micEnabled;
-    await room.localParticipant.setMicrophoneEnabled(next);
-    setMicEnabled(next);
+    try {
+      await room.localParticipant.setMicrophoneEnabled(next);
+      setMicEnabled(next);
+    } catch (e: any) {
+      console.warn("[room] toggleMic failed:", e.message);
+    }
   };
 
   const leave = async () => {
