@@ -17,7 +17,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "@/lib/supabase";
 import { useVoiceNotes } from "@/hooks/useVoiceNotes";
 import { useAuthStore } from "@/hooks/useAuth";
 import { shareSpotInvite, distributePendingKeys } from "@/lib/invites";
@@ -37,14 +36,15 @@ export default function CircleDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuthStore();
   const insets = useSafeAreaInsets();
-  const { notes, loading, sendVoiceNote, keyPending, circleKey } = useVoiceNotes(id);
+  const { notes, loading, sendVoiceNote } = useVoiceNotes(id);
   const listRef = useRef<FlatList>(null);
   const [spotName, setSpotName] = useState("Spot");
 
   // Load spot name + distribute any pending E2EE keys for new members
   useEffect(() => {
     if (!id) return;
-    supabase.from("circles").select("name").eq("id", id).single()
+    const { supabase: sb } = require("@/lib/supabase");
+    sb.from("circles").select("name").eq("id", id).single()
       .then(({ data }: any) => { if (data?.name) setSpotName(data.name); });
     // Fire-and-forget: wrap circle key for any pending new members
     distributePendingKeys(id).catch(() => {});
@@ -63,7 +63,6 @@ export default function CircleDetailScreen() {
     <VoiceNotePlayer
       note={item}
       isMine={item.sender_id === session?.user.id}
-      circleKey={circleKey}
     />
   );
 
@@ -82,7 +81,7 @@ export default function CircleDetailScreen() {
           <TouchableOpacity style={styles.iconBtn} onPress={() => router.push(`/(main)/circles/${id}/planning` as any)}>
             <Ionicons name="list-outline" size={20} color={Colors.sage} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => session && shareSpotInvite(id, spotName, session.user.id)}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => shareSpotInvite(id, spotName, session!.user.id)}>
             <Ionicons name="person-add-outline" size={20} color={Colors.purple} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.iconBtn} onPress={() => router.push(`/(main)/circles/${id}/settings` as any)}>
@@ -128,10 +127,7 @@ export default function CircleDetailScreen() {
             <View style={[styles.featureIconRing, { backgroundColor: "rgba(139,92,246,0.14)", borderColor: "rgba(139,92,246,0.25)" }]}>
               <Ionicons name="lock-closed" size={22} color="#A78BFA" />
             </View>
-            <View style={styles.featureTextGroup}>
-              <Text style={styles.featureTitle}>Private Call</Text>
-              <Text style={styles.featureSub}>Invite-only, passcode protected</Text>
-            </View>
+            <Text style={styles.featureTitle}>Private{"\n"}Call</Text>
             <Ionicons name="chevron-forward" size={13} color={FAINT} style={{ alignSelf: "flex-end" }} />
           </TouchableOpacity>
 
@@ -143,10 +139,7 @@ export default function CircleDetailScreen() {
             <View style={[styles.featureIconRing, { backgroundColor: "rgba(234,179,8,0.12)", borderColor: "rgba(234,179,8,0.25)" }]}>
               <Ionicons name="trophy-outline" size={22} color="#FCD34D" />
             </View>
-            <View style={styles.featureTextGroup}>
-              <Text style={styles.featureTitle}>Bets</Text>
-              <Text style={styles.featureSub}>Friendly wagers with the group</Text>
-            </View>
+            <Text style={styles.featureTitle}>Bets</Text>
             <Ionicons name="chevron-forward" size={13} color={FAINT} style={{ alignSelf: "flex-end" }} />
           </TouchableOpacity>
         </View>
@@ -161,10 +154,7 @@ export default function CircleDetailScreen() {
             <View style={[styles.featureIconRing, { backgroundColor: "rgba(239,68,68,0.1)", borderColor: "rgba(239,68,68,0.22)" }]}>
               <Ionicons name="repeat-outline" size={22} color="#FCA5A5" />
             </View>
-            <View style={styles.featureTextGroup}>
-              <Text style={styles.featureTitle}>Rounds</Text>
-              <Text style={styles.featureSub}>Take turns picking up the tab</Text>
-            </View>
+            <Text style={styles.featureTitle}>Rounds</Text>
             <Ionicons name="chevron-forward" size={13} color={FAINT} style={{ alignSelf: "flex-end" }} />
           </TouchableOpacity>
 
@@ -176,10 +166,7 @@ export default function CircleDetailScreen() {
             <View style={[styles.featureIconRing, { backgroundColor: "rgba(74,222,128,0.1)", borderColor: "rgba(74,222,128,0.2)" }]}>
               <Ionicons name="wallet-outline" size={22} color={Colors.green} />
             </View>
-            <View style={styles.featureTextGroup}>
-              <Text style={styles.featureTitle}>Split Expenses</Text>
-              <Text style={styles.featureSub}>Track who owes what, settle up</Text>
-            </View>
+            <Text style={styles.featureTitle}>Split{"\n"}Expenses</Text>
             <Ionicons name="chevron-forward" size={13} color={FAINT} style={{ alignSelf: "flex-end" }} />
           </TouchableOpacity>
         </View>
@@ -212,14 +199,7 @@ export default function CircleDetailScreen() {
 
       {/* ── Recorder ── */}
       <View style={styles.recorderBar}>
-        {keyPending ? (
-          <View style={styles.keyPendingBar}>
-            <Ionicons name="lock-closed-outline" size={14} color={FAINT} />
-            <Text style={styles.keyPendingText}>Setting up encryption… hold on</Text>
-          </View>
-        ) : (
-          <VoiceNoteRecorder onSend={handleSend} />
-        )}
+        <VoiceNoteRecorder onSend={handleSend} />
       </View>
     </View>
   );
@@ -322,19 +302,11 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
     borderWidth: 1,
   },
-  featureTextGroup: {
-    gap: 3,
-  },
   featureTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
     color: TEXT,
     letterSpacing: -0.2,
-  },
-  featureSub: {
-    fontSize: 11,
-    color: FAINT,
-    lineHeight: 15,
   },
 
   // Voice section
@@ -367,16 +339,5 @@ const styles = StyleSheet.create({
     borderTopColor: BORDER,
     backgroundColor: BG,
     paddingBottom: 24,
-  },
-  keyPendingBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 20,
-  },
-  keyPendingText: {
-    fontSize: 13,
-    color: FAINT,
   },
 });

@@ -77,11 +77,6 @@ export default function CreateBetScreen() {
     }
     const stake = parseInt(maxStake, 10);
     if (isNaN(stake) || stake < 1) { Alert.alert("Invalid stake amount"); return; }
-    if (hasClosingDate && closingDate) {
-      const d = new Date(closingDate);
-      if (isNaN(d.getTime())) { Alert.alert("Invalid date", "Use format YYYY-MM-DD (e.g. 2026-12-31)."); return; }
-      if (d <= new Date()) { Alert.alert("Invalid date", "Closing date must be in the future."); return; }
-    }
 
     setSaving(true);
     try {

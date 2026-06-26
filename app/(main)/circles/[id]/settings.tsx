@@ -29,14 +29,13 @@ const MUTED    = "rgba(255,255,255,0.4)";
 const FAINT    = "rgba(255,255,255,0.18)";
 const DANGER   = "#EF4444";
 
-// Must match the palette in circles/index.tsx (create form) exactly
 const PALETTE = [
-  { id: "sage",   hex: "#8FA876", dim: "rgba(143,168,118,0.18)" },
-  { id: "violet", hex: "#8B5CF6", dim: "rgba(139,92,246,0.18)"  },
-  { id: "teal",   hex: "#14B8A6", dim: "rgba(20,184,166,0.18)"  },
-  { id: "rose",   hex: "#F43F5E", dim: "rgba(244,63,94,0.18)"   },
-  { id: "blue",   hex: "#3B82F6", dim: "rgba(59,130,246,0.18)"  },
-  { id: "gold",   hex: "#C9A84C", dim: "rgba(201,168,76,0.18)"  },
+  { id: "gold",    hex: "#C9A84C", dim: "rgba(201,168,76,0.18)"  },
+  { id: "violet",  hex: "#8B5CF6", dim: "rgba(139,92,246,0.18)"  },
+  { id: "teal",    hex: "#14B8A6", dim: "rgba(20,184,166,0.18)"  },
+  { id: "rose",    hex: "#F43F5E", dim: "rgba(244,63,94,0.18)"   },
+  { id: "blue",    hex: "#3B82F6", dim: "rgba(59,130,246,0.18)"  },
+  { id: "emerald", hex: "#10B981", dim: "rgba(16,185,129,0.18)"  },
 ];
 
 function getColor(colorId: string) {
@@ -65,7 +64,7 @@ export default function SpotSettingsScreen() {
   const userId = session?.user.id;
 
   const [name, setName]         = useState("");
-  const [colorId, setColorId]   = useState("sage");
+  const [colorId, setColorId]   = useState("gold");
   const [members, setMembers]   = useState<Member[]>([]);
   const [myRole, setMyRole]     = useState<string>("member");
   const [loading, setLoading]   = useState(true);
@@ -90,7 +89,7 @@ export default function SpotSettingsScreen() {
 
     if (spotRes.data) {
       setName(spotRes.data.name);
-      setColorId(spotRes.data.icon && PALETTE.some(p => p.id === spotRes.data!.icon) ? spotRes.data.icon! : "sage");
+      setColorId(spotRes.data.icon && PALETTE.some(p => p.id === spotRes.data!.icon) ? spotRes.data.icon! : "gold");
     }
 
     if (membersRes.data) {

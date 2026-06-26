@@ -61,20 +61,33 @@ export default function DropInRoomScreen() {
           )
         );
 
-      await AudioSession.startAudioSession();
-
       const { token, url } = await Promise.race([
         getCircleRoomToken(id),
         makeTimeout(10_000),
       ]);
 
+      await AudioSession.startAudioSession();
+
       await Promise.race([
-        room.connect(url, token, { autoSubscribe: true }),
+        room.connect(url, token, {
+          autoSubscribe: true,
+          // LiveKit's internal timeout — causes the client to abort ICE
+          // gathering and reject cleanly instead of hanging indefinitely.
+          timeout: 15_000,
+        }),
         makeTimeout(20_000),
       ]);
 
-      await room.localParticipant.setMicrophoneEnabled(true);
-      setMicEnabled(true);
+      // Small delay before enabling mic — avoids iOS native crash when audio
+      // session and peer connection initialise simultaneously.
+      await new Promise(r => setTimeout(r, 300));
+      try {
+        await room.localParticipant.setMicrophoneEnabled(true);
+        setMicEnabled(true);
+      } catch (micErr: any) {
+        console.warn("[room] mic enable failed:", micErr.message);
+        setMicEnabled(false);
+      }
     } catch (e: any) {
       console.error("[room] join failed:", e.message);
       Alert.alert("Couldn't join room", e.message, [
@@ -118,8 +131,12 @@ export default function DropInRoomScreen() {
   // ── Controls ──────────────────────────────────────────────────────────────
   const toggleMic = async () => {
     const next = !micEnabled;
-    await room.localParticipant.setMicrophoneEnabled(next);
-    setMicEnabled(next);
+    try {
+      await room.localParticipant.setMicrophoneEnabled(next);
+      setMicEnabled(next);
+    } catch (e: any) {
+      console.warn("[room] toggleMic failed:", e.message);
+    }
   };
 
   const leave = async () => {
