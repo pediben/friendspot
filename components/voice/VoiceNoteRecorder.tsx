@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Pressable,
   Animated,
+  Alert,
   Platform,
 } from "react-native";
 import { Audio } from "expo-av";
@@ -39,7 +40,12 @@ export function VoiceNoteRecorder({ onSend }: Props) {
   }, [recording]);
 
   const startRecording = async () => {
-    await Audio.requestPermissionsAsync();
+    try {
+    const { granted } = await Audio.requestPermissionsAsync();
+    if (!granted) {
+      Alert.alert("Microphone access needed", "Go to Settings → Friendspot and enable Microphone.");
+      return;
+    }
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: true,
       playsInSilentModeIOS: true,
@@ -72,6 +78,9 @@ export function VoiceNoteRecorder({ onSend }: Props) {
         if (ms >= MAX_MS) stopRecording(rec);
       }
     }, 100);
+    } catch (e: any) {
+      Alert.alert("Couldn't start recording", e.message);
+    }
   };
 
   const stopRecording = async (rec?: Audio.Recording) => {

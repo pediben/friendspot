@@ -307,7 +307,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: TEXT,
     letterSpacing: -0.2,
-    flex: 1,
   },
 
   // Voice section
