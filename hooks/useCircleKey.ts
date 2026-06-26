@@ -75,7 +75,7 @@ export function useCircleKey(circleId: string) {
 
           if (cancelled) return;
 
-          if (membership?.role === "admin") {
+          if (membership?.role === "admin" || membership?.role === "owner") {
             // Creator's key was never persisted — generate it now
             try {
               const hexKey   = await generateCircleKey();

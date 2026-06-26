@@ -1,5 +1,5 @@
 /**
- * LiveKit helpers for Friendspot voice rooms.
+ * LiveKit helpers for Friendzone voice rooms.
  *
  * Each circle has a persistent LiveKit room named `circle-{circle_id}`.
  * Tokens are minted server-side via a Supabase Edge Function.

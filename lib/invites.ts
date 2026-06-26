@@ -140,6 +140,15 @@ export async function distributePendingKeys(circleId: string) {
   // then wrap the circle key for them using their registered public key.
   for (const share of pending) {
     try {
+      // Find the user who joined with this code
+      const { data: invite } = await supabase
+        .from("spot_invites")
+        .select("circle_id")
+        .eq("code", share.invite_code)
+        .single();
+
+      if (!invite) continue;
+
       // Find circle members who don't yet have a key
       const { data: members } = await supabase
         .from("circle_members")
