@@ -1,5 +1,5 @@
 /**
- * E2EE helpers for Friendzone
+ * E2EE helpers for Friendspot
  *
  * Strategy:
  *  - Each circle has a symmetric AES-256-GCM key derived from a shared secret.
@@ -11,9 +11,16 @@
  *
  * This file provides the low-level encrypt/decrypt primitives.
  * Key management (generation, storage, sharing) lives in hooks/useCircleKey.ts.
+ *
+ * Uses @noble/ciphers (pure JS AES-256-GCM) instead of crypto.subtle because
+ * Hermes in React Native 0.74 does not reliably support the full Web Crypto API
+ * chain required here (importKey + encrypt/decrypt with AES-GCM).
  */
 
 import * as Crypto from "expo-crypto";
+import * as FileSystem from "expo-file-system";
+import { gcm } from "@noble/ciphers/aes";
+import { randomBytes } from "@noble/ciphers/utils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -21,7 +28,7 @@ import * as Crypto from "expo-crypto";
 
 export interface EncryptedPayload {
   iv: string;   // base64 — 12 bytes for AES-GCM
-  data: string; // base64 — ciphertext
+  data: string; // base64 — ciphertext + 16-byte GCM auth tag
 }
 
 // ---------------------------------------------------------------------------
@@ -34,51 +41,46 @@ export async function generateCircleKey(): Promise<string> {
   return Buffer.from(bytes).toString("hex");
 }
 
-/** Derive a CryptoKey from a hex key string */
-async function importKey(hexKey: string): Promise<CryptoKey> {
-  const keyBytes = Buffer.from(hexKey, "hex");
-  return crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, [
-    "encrypt",
-    "decrypt",
-  ]);
-}
-
 // ---------------------------------------------------------------------------
 // Encrypt / Decrypt
 // ---------------------------------------------------------------------------
 
-/** Encrypt a Uint8Array with AES-256-GCM. Returns iv + ciphertext as base64. */
+/**
+ * Encrypt a Uint8Array with AES-256-GCM.
+ * Returns { iv, data } as base64 strings.
+ * The `data` field includes the 16-byte GCM authentication tag appended by
+ * @noble/ciphers/aes gcm.encrypt().
+ */
 export async function encryptBytes(
   plaintext: Uint8Array,
   hexKey: string
 ): Promise<EncryptedPayload> {
-  const key = await importKey(hexKey);
-  const iv = await Crypto.getRandomBytesAsync(12);
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv: iv as unknown as BufferSource },
-    key,
-    plaintext as unknown as BufferSource
-  );
+  const keyBytes = Buffer.from(hexKey, "hex");
+  const iv = randomBytes(12); // 12-byte nonce for AES-GCM
+
+  // gcm(key, nonce).encrypt(plaintext) → ciphertext + 16-byte auth tag
+  const ciphertext = gcm(keyBytes, iv).encrypt(plaintext);
+
   return {
-    iv: Buffer.from(iv).toString("base64"),
+    iv:   Buffer.from(iv).toString("base64"),
     data: Buffer.from(ciphertext).toString("base64"),
   };
 }
 
-/** Decrypt an EncryptedPayload back to Uint8Array. */
+/**
+ * Decrypt an EncryptedPayload back to Uint8Array.
+ * Throws if the auth tag doesn't match (tampered data).
+ */
 export async function decryptBytes(
   payload: EncryptedPayload,
   hexKey: string
 ): Promise<Uint8Array> {
-  const key = await importKey(hexKey);
-  const iv = Buffer.from(payload.iv, "base64");
+  const keyBytes  = Buffer.from(hexKey, "hex");
+  const iv        = Buffer.from(payload.iv, "base64");
   const ciphertext = Buffer.from(payload.data, "base64");
-  const plaintext = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv },
-    key,
-    ciphertext
-  );
-  return new Uint8Array(plaintext);
+
+  // gcm(key, nonce).decrypt(ciphertext) verifies auth tag and returns plaintext
+  return gcm(keyBytes, iv).decrypt(ciphertext);
 }
 
 /** Convenience: encrypt a file URI's content. Returns a Blob ready for upload. */
@@ -93,7 +95,11 @@ export async function encryptFileUri(
   return new Blob([JSON.stringify(payload)], { type: "application/octet-stream" });
 }
 
-/** Convenience: decrypt a blob downloaded from Storage. Returns a local data URL. */
+/**
+ * Convenience: decrypt a blob downloaded from Storage.
+ * Writes the decrypted bytes to a temporary local file and returns its URI.
+ * Uses expo-file-system instead of URL.createObjectURL (not available in React Native).
+ */
 export async function decryptBlobToUri(
   blob: Blob,
   hexKey: string,
@@ -102,6 +108,11 @@ export async function decryptBlobToUri(
   const text = await blob.text();
   const payload: EncryptedPayload = JSON.parse(text);
   const bytes = await decryptBytes(payload, hexKey);
-  const decryptedBlob = new Blob([bytes as unknown as BlobPart], { type: mimeType });
-  return URL.createObjectURL(decryptedBlob);
+  const ext = mimeType.split("/")[1]?.replace("mpeg", "mp3") ?? "bin";
+  const tempPath = `${FileSystem.cacheDirectory}friendspot_dec_${Date.now()}.${ext}`;
+  const base64 = Buffer.from(bytes).toString("base64");
+  await FileSystem.writeAsStringAsync(tempPath, base64, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  return tempPath;
 }

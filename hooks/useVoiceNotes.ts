@@ -32,11 +32,18 @@ export function useVoiceNotes(circleId: string) {
     setLoading(false);
   }, [circleId]);
 
+  // Unique channel name per mount prevents duplicate-subscription bugs when
+  // navigating away and back to the same circle (Supabase silently drops
+  // a second subscription to a channel with the same name).
+  const [channelName] = useState(
+    () => `circle_messages_${circleId}_${Math.random().toString(36).slice(2)}`
+  );
+
   useEffect(() => {
     fetch();
 
     const sub = supabase
-      .channel(`circle_messages:${circleId}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
@@ -50,7 +57,7 @@ export function useVoiceNotes(circleId: string) {
       .subscribe();
 
     return () => { supabase.removeChannel(sub); };
-  }, [fetch, circleId]);
+  }, [fetch, channelName]);
 
   /**
    * Upload a recorded audio file URI as an encrypted voice note.
@@ -88,5 +95,5 @@ export function useVoiceNotes(circleId: string) {
     await fetch();
   };
 
-  return { notes, loading, sendVoiceNote, keyPending: keyError === "key_pending" };
+  return { notes, loading, sendVoiceNote, keyPending: keyError === "key_pending", circleKey };
 }

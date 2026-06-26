@@ -3,69 +3,61 @@
  *
  * ECDH P-256 key exchange for wrapping/unwrapping per-circle AES-256 keys.
  *
- * Flow:
- *   Sender (inviter / circle creator):
- *     1. Load their own ECDH private key from SecureStore.
- *     2. Fetch recipient's ECDH public key from Supabase (user_public_keys).
- *     3. Generate an ephemeral ECDH key pair.
- *     4. Derive a wrapping key: ECDH(ephemeral_private, recipient_public) → HKDF → AES-KW.
- *     5. Wrap the 32-byte circle key with AES-KW.
- *     6. Store { encrypted_key, ephemeral_pub } in circle_keys table.
+ * Uses @noble/curves, @noble/hashes, @noble/ciphers (pure JS) instead of
+ * Web Crypto API because Hermes in React Native 0.74 does not support the
+ * full ECDH + HKDF + AES-KW algorithm chain via crypto.subtle, causing
+ * silent failures and leaving circle_keys / user_public_keys tables empty.
  *
- *   Recipient (new member):
- *     1. Fetch their circle_keys row.
- *     2. Load their ECDH private key from SecureStore.
- *     3. Reconstruct wrap key: ECDH(recipient_private, ephemeral_pub) → HKDF → AES-KW.
- *     4. Unwrap to get the 32-byte AES-256 circle key.
- *     5. Cache it in SecureStore for fast access.
+ * Protocol:
+ *   Wrap (sender stores key for recipient):
+ *     1. Generate ephemeral P-256 key pair.
+ *     2. ECDH(ephemeral_private, recipient_public) → shared x-coordinate.
+ *     3. HKDF-SHA-256(shared_x, salt="friendspot-circle-key-v1") → 32-byte wrap key.
+ *     4. AES-KW(wrap_key).encrypt(32-byte circle key) → 40-byte wrapped key.
+ *     5. Store { encrypted_key: base64(wrapped), ephemeral_pub: base64(ephPub65) }.
+ *
+ *   Unwrap (recipient recovers key):
+ *     1. Load own P-256 private key from SecureStore.
+ *     2. ECDH(own_private, ephemeral_pub) → same shared x-coordinate.
+ *     3. HKDF → same wrap key.
+ *     4. AES-KW(wrap_key).decrypt(wrapped) → 32-byte circle key.
+ *
+ * Key storage in SecureStore (raw, not PKCS8/SPKI):
+ *   "friendspot.ecdh.private.v2" → base64(32-byte scalar)
+ *   "friendspot.ecdh.public.v2"  → base64(65-byte uncompressed P-256 point)
  */
 
 import * as SecureStore from "expo-secure-store";
-import * as Crypto from "expo-crypto";
+import { p256 } from "@noble/curves/nist";
+import { hkdf } from "@noble/hashes/hkdf";
+import { sha256 } from "@noble/hashes/sha2";
+import { aeskw } from "@noble/ciphers/aes";
 
-// Web Crypto is not available in Expo Go / bare React Native.
-// All functions below guard against this and throw descriptively,
-// so callers (useUserKeys) can catch and disable E2EE gracefully.
-const webCryptoAvailable =
-  typeof crypto !== "undefined" && typeof crypto.subtle !== "undefined";
+// ─── SecureStore keys ─────────────────────────────────────────────────────────
+// v2 suffix distinguishes from any old PKCS8/SPKI format keys that may exist
+const PRIV_KEY_STORE = "friendspot.ecdh.private.v2";
+const PUB_KEY_STORE  = "friendspot.ecdh.public.v2";
 
-function requireWebCrypto(fn: string) {
-  if (!webCryptoAvailable) {
-    throw new Error(
-      `[keyExchange] ${fn}: Web Crypto API not available in this environment (Expo Go). ` +
-      "E2EE is disabled. Use a development build for full encryption support."
-    );
-  }
-}
+// Shared salt for HKDF — changing this invalidates all existing wrapped keys
+const HKDF_SALT = new TextEncoder().encode("friendspot-circle-key-v1");
 
-// ─── SecureStore keys ────────────────────────────────────────────
-const PRIV_KEY_STORE = "friendspot.ecdh.private";
-const PUB_KEY_STORE  = "friendspot.ecdh.public";
-
-// ─── Key generation ──────────────────────────────────────────────
+// ─── Key generation ───────────────────────────────────────────────────────────
 
 /** Generate a new ECDH P-256 key pair and persist it in SecureStore. */
 export async function generateUserKeyPair(): Promise<{ publicKeyB64: string }> {
-  requireWebCrypto("generateUserKeyPair");
-  const keyPair = await crypto.subtle.generateKey(
-    { name: "ECDH", namedCurve: "P-256" },
-    true,
-    ["deriveKey"]
-  );
+  const privKey = p256.utils.randomSecretKey();          // 32-byte scalar
+  const pubKey  = p256.getPublicKey(privKey, false);     // 65-byte uncompressed
 
-  const pubRaw  = await crypto.subtle.exportKey("spki", keyPair.publicKey);
-  const privRaw = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
-
-  const pubB64  = Buffer.from(pubRaw).toString("base64");
-  const privB64 = Buffer.from(privRaw).toString("base64");
+  const privB64 = Buffer.from(privKey).toString("base64");
+  const pubB64  = Buffer.from(pubKey).toString("base64");
 
   await SecureStore.setItemAsync(PRIV_KEY_STORE, privB64);
-  await SecureStore.setItemAsync(PUB_KEY_STORE, pubB64);
+  await SecureStore.setItemAsync(PUB_KEY_STORE,  pubB64);
 
   return { publicKeyB64: pubB64 };
 }
 
-/** Returns the stored public key (base64 SPKI), generating one if absent. */
+/** Returns the stored public key (base64 uncompressed P-256), generating one if absent. */
 export async function getOrCreatePublicKey(): Promise<string> {
   const stored = await SecureStore.getItemAsync(PUB_KEY_STORE);
   if (stored) return stored;
@@ -73,144 +65,79 @@ export async function getOrCreatePublicKey(): Promise<string> {
   return publicKeyB64;
 }
 
-// ─── Import helpers ──────────────────────────────────────────────
-
-async function importPublicKey(b64: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    "spki",
-    Buffer.from(b64, "base64"),
-    { name: "ECDH", namedCurve: "P-256" },
-    false,
-    []
-  );
-}
-
-async function importPrivateKey(b64: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    "pkcs8",
-    Buffer.from(b64, "base64"),
-    { name: "ECDH", namedCurve: "P-256" },
-    false,
-    ["deriveKey"]
-  );
-}
-
-// ─── ECDH → HKDF → AES-KW ───────────────────────────────────────
+// ─── ECDH + HKDF shared key derivation ───────────────────────────────────────
 
 /**
- * Derives an AES-KW (256-bit) wrapping key from two ECDH keys.
- * Uses Web Crypto's deriveKey so the raw secret never enters JS.
+ * Derives a 32-byte AES-KW wrapping key from an ECDH exchange.
+ * Uses the x-coordinate of the shared point as HKDF input key material.
  */
-async function deriveWrapKey(
-  privateKey: CryptoKey,
-  publicKey: CryptoKey
-): Promise<CryptoKey> {
-  // Step 1: ECDH shared secret → HKDF input
-  const sharedBits = await crypto.subtle.deriveBits(
-    { name: "ECDH", public: publicKey },
-    privateKey,
-    256
-  );
-
-  // Step 2: HKDF to stretch / domain-separate
-  const hkdfKey = await crypto.subtle.importKey(
-    "raw", sharedBits, { name: "HKDF" }, false, ["deriveKey"]
-  );
-
-  const salt = new TextEncoder().encode("friendspot-circle-key-v1");
-  return crypto.subtle.deriveKey(
-    { name: "HKDF", hash: "SHA-256", salt, info: new Uint8Array(0) },
-    hkdfKey,
-    { name: "AES-KW", length: 256 },
-    false,
-    ["wrapKey", "unwrapKey"]
-  );
+function deriveWrapKey(privateKeyBytes: Uint8Array, publicKeyBytes: Uint8Array): Uint8Array {
+  // ECDH: shared point in compressed form (33 bytes: prefix + x)
+  const sharedPoint = p256.getSharedSecret(privateKeyBytes, publicKeyBytes, true);
+  // Use x-coordinate only (32 bytes, skip the 0x02/0x03 prefix byte)
+  const xCoord = sharedPoint.slice(1);
+  // HKDF-SHA-256: info=empty, length=32
+  return hkdf(sha256, xCoord, HKDF_SALT, undefined, 32);
 }
 
-// ─── Wrap (encrypt circle key for a recipient) ───────────────────
+// ─── Wrap (encrypt circle key for a recipient) ────────────────────────────────
 
 export interface WrappedKey {
-  encryptedKey: string;  // base64 — AES-KW output (40 bytes for 32-byte key)
-  ephemeralPub: string;  // base64 SPKI — recipient needs this to unwrap
+  encryptedKey: string; // base64 — 40-byte AES-KW output (32-byte key + 8-byte integrity check)
+  ephemeralPub: string; // base64 — 65-byte uncompressed P-256 ephemeral public key
 }
 
 /**
  * Wraps a 32-byte hex circle key for a recipient identified by their
- * SPKI base64 public key.
+ * base64-encoded uncompressed P-256 public key.
  */
 export async function wrapCircleKey(
   circleKeyHex: string,
   recipientPublicKeyB64: string
 ): Promise<WrappedKey> {
-  requireWebCrypto("wrapCircleKey");
-  // Import recipient's static public key
-  const recipientPub = await importPublicKey(recipientPublicKeyB64);
+  const recipientPub = Buffer.from(recipientPublicKeyB64, "base64");
 
-  // Generate a fresh ephemeral key pair for this wrap operation
-  const ephemeral = await crypto.subtle.generateKey(
-    { name: "ECDH", namedCurve: "P-256" },
-    true,
-    ["deriveKey", "deriveBits"]
-  );
+  // Fresh ephemeral key pair for this wrap operation
+  const ephPriv = p256.utils.randomSecretKey();
+  const ephPub  = p256.getPublicKey(ephPriv, false); // 65 bytes
 
-  const ephemeralPubRaw = await crypto.subtle.exportKey("spki", ephemeral.publicKey);
-  const ephemeralPubB64 = Buffer.from(ephemeralPubRaw).toString("base64");
-
-  // Derive wrap key
-  const wrapKey = await deriveWrapKey(ephemeral.privateKey, recipientPub);
-
-  // Import the circle key as AES-GCM so we can wrap it
+  const wrapKey  = deriveWrapKey(ephPriv, recipientPub);
   const circleKeyBytes = Buffer.from(circleKeyHex, "hex");
-  const circleKey = await crypto.subtle.importKey(
-    "raw", circleKeyBytes, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]
-  );
 
-  // AES-KW wrap (no IV needed — AES-KW has its own integrity check)
-  const wrapped = await crypto.subtle.wrapKey("raw", circleKey, wrapKey, { name: "AES-KW" });
+  // AES-KW encrypt: output is 40 bytes (32 + 8 integrity check)
+  const wrapped = aeskw(wrapKey).encrypt(circleKeyBytes);
 
   return {
     encryptedKey: Buffer.from(wrapped).toString("base64"),
-    ephemeralPub: ephemeralPubB64,
+    ephemeralPub: Buffer.from(ephPub).toString("base64"),
   };
 }
 
-// ─── Unwrap (recover circle key from wrapped data) ───────────────
+// ─── Unwrap (recover circle key from wrapped data) ────────────────────────────
 
 /**
- * Unwraps an encrypted circle key using this device's ECDH private key
- * and the ephemeral public key stored alongside the wrapped key.
- *
+ * Unwraps an encrypted circle key using this device's ECDH private key.
  * Returns the circle key as a hex string.
  */
 export async function unwrapCircleKey(
   encryptedKeyB64: string,
   ephemeralPubB64: string
 ): Promise<string> {
-  requireWebCrypto("unwrapCircleKey");
   const privB64 = await SecureStore.getItemAsync(PRIV_KEY_STORE);
   if (!privB64) throw new Error("No private key on device — key pair missing");
 
-  const myPrivKey   = await importPrivateKey(privB64);
-  const ephemeralPub = await importPublicKey(ephemeralPubB64);
+  const myPriv    = Buffer.from(privB64, "base64");
+  const ephPub    = Buffer.from(ephemeralPubB64, "base64");
+  const wrapped   = Buffer.from(encryptedKeyB64, "base64");
 
-  const wrapKey = await deriveWrapKey(myPrivKey, ephemeralPub);
+  const wrapKey = deriveWrapKey(myPriv, ephPub);
 
-  const wrappedBytes = Buffer.from(encryptedKeyB64, "base64");
-  const circleKey = await crypto.subtle.unwrapKey(
-    "raw",
-    wrappedBytes,
-    wrapKey,
-    { name: "AES-KW" },
-    { name: "AES-GCM", length: 256 },
-    true,
-    ["encrypt", "decrypt"]
-  );
-
-  const raw = await crypto.subtle.exportKey("raw", circleKey);
-  return Buffer.from(raw).toString("hex");
+  // AES-KW decrypt: output is 32 bytes
+  const circleKeyBytes = aeskw(wrapKey).decrypt(wrapped);
+  return Buffer.from(circleKeyBytes).toString("hex");
 }
 
-// ─── Cache helpers ───────────────────────────────────────────────
+// ─── In-memory cache ──────────────────────────────────────────────────────────
 
 const circleKeyCache: Record<string, string> = {};
 
@@ -220,4 +147,11 @@ export function getCachedCircleKey(circleId: string): string | null {
 
 export function setCachedCircleKey(circleId: string, hexKey: string) {
   circleKeyCache[circleId] = hexKey;
+}
+
+/** Clear all cached circle keys — call on sign-out to prevent key leakage between sessions. */
+export function clearCircleKeyCache() {
+  for (const key of Object.keys(circleKeyCache)) {
+    delete circleKeyCache[key];
+  }
 }
