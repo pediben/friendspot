@@ -127,8 +127,10 @@ export default function CircleDetailScreen() {
             <View style={[styles.featureIconRing, { backgroundColor: "rgba(139,92,246,0.14)", borderColor: "rgba(139,92,246,0.25)" }]}>
               <Ionicons name="lock-closed" size={22} color="#A78BFA" />
             </View>
-            <Text style={styles.featureTitle}>Private Call</Text>
-            <Text style={styles.featureSub}>Invite-only room with a passcode</Text>
+            <View style={styles.featureTextGroup}>
+              <Text style={styles.featureTitle}>Private Call</Text>
+              <Text style={styles.featureSub}>Invite-only, passcode protected</Text>
+            </View>
             <Ionicons name="chevron-forward" size={13} color={FAINT} style={{ alignSelf: "flex-end" }} />
           </TouchableOpacity>
 
@@ -140,8 +142,10 @@ export default function CircleDetailScreen() {
             <View style={[styles.featureIconRing, { backgroundColor: "rgba(234,179,8,0.12)", borderColor: "rgba(234,179,8,0.25)" }]}>
               <Ionicons name="trophy-outline" size={22} color="#FCD34D" />
             </View>
-            <Text style={styles.featureTitle}>Bets</Text>
-            <Text style={styles.featureSub}>Make friendly wagers with the group</Text>
+            <View style={styles.featureTextGroup}>
+              <Text style={styles.featureTitle}>Bets</Text>
+              <Text style={styles.featureSub}>Friendly wagers with the group</Text>
+            </View>
             <Ionicons name="chevron-forward" size={13} color={FAINT} style={{ alignSelf: "flex-end" }} />
           </TouchableOpacity>
         </View>
@@ -156,8 +160,10 @@ export default function CircleDetailScreen() {
             <View style={[styles.featureIconRing, { backgroundColor: "rgba(239,68,68,0.1)", borderColor: "rgba(239,68,68,0.22)" }]}>
               <Ionicons name="repeat-outline" size={22} color="#FCA5A5" />
             </View>
-            <Text style={styles.featureTitle}>Rounds</Text>
-            <Text style={styles.featureSub}>Take turns picking up the tab</Text>
+            <View style={styles.featureTextGroup}>
+              <Text style={styles.featureTitle}>Rounds</Text>
+              <Text style={styles.featureSub}>Take turns picking up the tab</Text>
+            </View>
             <Ionicons name="chevron-forward" size={13} color={FAINT} style={{ alignSelf: "flex-end" }} />
           </TouchableOpacity>
 
@@ -169,8 +175,10 @@ export default function CircleDetailScreen() {
             <View style={[styles.featureIconRing, { backgroundColor: "rgba(74,222,128,0.1)", borderColor: "rgba(74,222,128,0.2)" }]}>
               <Ionicons name="wallet-outline" size={22} color={Colors.green} />
             </View>
-            <Text style={styles.featureTitle}>Split Expenses</Text>
-            <Text style={styles.featureSub}>Track who owes what, settle up</Text>
+            <View style={styles.featureTextGroup}>
+              <Text style={styles.featureTitle}>Split Expenses</Text>
+              <Text style={styles.featureSub}>Track who owes what, settle up</Text>
+            </View>
             <Ionicons name="chevron-forward" size={13} color={FAINT} style={{ alignSelf: "flex-end" }} />
           </TouchableOpacity>
         </View>
@@ -305,6 +313,10 @@ const styles = StyleSheet.create({
     width: 48, height: 48, borderRadius: 16,
     alignItems: "center", justifyContent: "center",
     borderWidth: 1,
+  },
+  featureTextGroup: {
+    flex: 1,
+    gap: 3,
   },
   featureTitle: {
     fontSize: 14,

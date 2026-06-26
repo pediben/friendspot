@@ -1,5 +1,5 @@
 /**
- * Main tab layout — 6 tabs: Spots · Moments · Live · $ · Messages · Me
+ * Main tab layout — 5 tabs: Spots · Live · Moments · Messages · Finance
  *
  * All other screens (join, stories, about, dms/[id], circles/[id]/*, etc.)
  * live inside the tab stacks but are NOT shown in the tab bar.

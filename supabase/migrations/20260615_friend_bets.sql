@@ -1,2 +1,0 @@
--- Migration saved locally for reference. Already applied to prod on 2026-06-15.
--- See apply_migration call in session history for full SQL.

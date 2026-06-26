@@ -92,16 +92,6 @@ export default function MessagesScreen() {
           <Text style={styles.heading}>Messages</Text>
         </View>
         <View style={styles.headerRight}>
-          {router.canGoBack() && (
-            <TouchableOpacity
-              style={styles.closeBtn}
-              onPress={() => router.back()}
-              activeOpacity={0.75}
-              hitSlop={12}
-            >
-              <Ionicons name="close" size={22} color={MUTED} />
-            </TouchableOpacity>
-          )}
           <TouchableOpacity
             style={styles.meBtn}
             onPress={() => router.push("/(main)/profile")}
@@ -157,11 +147,6 @@ const styles = StyleSheet.create({
     fontSize: 26, fontWeight: "800", color: TEXT, letterSpacing: -0.5,
   },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  closeBtn: {
-    width: 34, height: 34, borderRadius: 17,
-    backgroundColor: "rgba(255,255,255,0.07)",
-    alignItems: "center", justifyContent: "center",
-  },
   meBtn: {
     padding: 2,
   },
