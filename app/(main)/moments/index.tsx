@@ -15,18 +15,6 @@ import { Colors } from "@/constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
 import { LogoMark } from "@/components/ui/LogoMark";
 
-const SPOT_COLORS: Record<string, string> = {
-  sage:   "#8FA876",
-  violet: "#8B5CF6",
-  teal:   "#14B8A6",
-  rose:   "#F43F5E",
-  blue:   "#3B82F6",
-  gold:   "#C9A84C",
-};
-function spotColor(icon?: string | null) {
-  return SPOT_COLORS[icon ?? "sage"] ?? Colors.sage;
-}
-
 export default function MomentsListScreen() {
   const { moments, loading } = useMoments();
 
@@ -53,10 +41,9 @@ export default function MomentsListScreen() {
         )}
       </View>
       <View style={styles.cardBottom}>
-        <View style={styles.circleLabelRow}>
-          <View style={[styles.circleColorDot, { backgroundColor: spotColor(item.circle?.icon) }]} />
-          <Text style={styles.circleLabel} numberOfLines={1}>{item.circle?.name}</Text>
-        </View>
+        <Text style={styles.circleLabel}>
+          {item.circle?.icon ?? "✨"} {item.circle?.name}
+        </Text>
         <View style={styles.badges}>
           <View style={styles.badge}>
             <Ionicons name="images-outline" size={12} color={Colors.textMuted} />
@@ -88,6 +75,9 @@ export default function MomentsListScreen() {
 
         {/* Right: actions */}
         <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.glassBtn} onPress={() => router.push("/(main)/dms" as any)}>
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color="rgba(244,245,240,0.7)" />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.glassBtn} onPress={() => router.push("/(main)/profile" as any)}>
             <Ionicons name="person-circle-outline" size={20} color="rgba(244,245,240,0.7)" />
           </TouchableOpacity>
@@ -109,7 +99,7 @@ export default function MomentsListScreen() {
           {/* Heading */}
           <Text style={styles.emptyTitle}>Your moments live here</Text>
           <Text style={styles.emptyBody}>
-            A Moment is an event inside a Spot — birthday, trip, dinner, whatever. Add a photo, track expenses, invite guests secretly.
+            Create a moment for a trip, birthday, dinner — anything worth remembering.
           </Text>
 
           {/* Free plan badge */}
@@ -262,9 +252,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  circleLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  circleColorDot: { width: 8, height: 8, borderRadius: 4 },
-  circleLabel: { color: Colors.textMuted, fontSize: 13, flexShrink: 1 },
+  circleLabel: { color: Colors.textMuted, fontSize: 13 },
   badges: { flexDirection: "row", gap: 6 },
   badge: {
     flexDirection: "row",

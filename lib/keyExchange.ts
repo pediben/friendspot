@@ -221,10 +221,3 @@ export function getCachedCircleKey(circleId: string): string | null {
 export function setCachedCircleKey(circleId: string, hexKey: string) {
   circleKeyCache[circleId] = hexKey;
 }
-
-/** Clear all cached circle keys — call on sign-out to prevent key leakage between sessions. */
-export function clearCircleKeyCache() {
-  for (const key of Object.keys(circleKeyCache)) {
-    delete circleKeyCache[key];
-  }
-}

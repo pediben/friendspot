@@ -82,7 +82,7 @@ export default function CircleDetailScreen() {
           <TouchableOpacity style={styles.iconBtn} onPress={() => router.push(`/(main)/circles/${id}/planning` as any)}>
             <Ionicons name="list-outline" size={20} color={Colors.sage} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => shareSpotInvite(id, spotName, session!.user.id)}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => session && shareSpotInvite(id, spotName, session.user.id)}>
             <Ionicons name="person-add-outline" size={20} color={Colors.purple} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.iconBtn} onPress={() => router.push(`/(main)/circles/${id}/settings` as any)}>

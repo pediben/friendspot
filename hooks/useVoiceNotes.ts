@@ -88,5 +88,5 @@ export function useVoiceNotes(circleId: string) {
     await fetch();
   };
 
-  return { notes, loading, sendVoiceNote, keyPending: keyError === "key_pending", circleKey };
+  return { notes, loading, sendVoiceNote, keyPending: keyError === "key_pending" };
 }

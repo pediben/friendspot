@@ -3,23 +3,24 @@
  * Renders a voice note bubble with waveform visualization and play/pause control.
  * Downloads and decrypts the audio on first play.
  */
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { Audio } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
 import { CircleMessageWithSender } from "@/types/database";
 import { Avatar } from "@/components/ui/Avatar";
 import { supabase } from "@/lib/supabase";
-import { decryptBlobToUri } from "@/lib/crypto";
 import { Colors } from "@/constants/Colors";
+
+// Placeholder — replace with per-circle key from SecureStore
+const MOCK_KEY = "0000000000000000000000000000000000000000000000000000000000000000";
 
 interface Props {
   note: CircleMessageWithSender;
   isMine: boolean;
-  circleKey?: string | null;
 }
 
-export function VoiceNotePlayer({ note, isMine, circleKey }: Props) {
+export function VoiceNotePlayer({ note, isMine }: Props) {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -49,18 +50,10 @@ export function VoiceNotePlayer({ note, isMine, circleKey }: Props) {
 
       if (error || !data) throw error ?? new Error("Download failed");
 
-      // Decrypt the encrypted .enc blob to a local temp file URI
-      let uri: string;
-      if (circleKey) {
-        uri = await decryptBlobToUri(data, circleKey, "audio/m4a");
-      } else {
-        // Fallback: audio might not be encrypted (e.g. old notes) — use signed URL
-        const { data: signed } = await supabase.storage
-          .from("voice-notes")
-          .createSignedUrl(note.media_url ?? "", 3600);
-        if (!signed?.signedUrl) throw new Error("Could not get audio URL");
-        uri = signed.signedUrl;
-      }
+      // In production: decrypt with per-circle key
+      // const decryptedUri = await decryptBlobToUri(data, MOCK_KEY, "audio/m4a");
+      // For now, create a local URI from the blob directly (unencrypted dev mode)
+      const uri = URL.createObjectURL(data);
 
       const { sound: s } = await Audio.Sound.createAsync(
         { uri },
@@ -92,11 +85,7 @@ export function VoiceNotePlayer({ note, isMine, circleKey }: Props) {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   };
 
-  // Stable waveform — memoized so bars don't flicker on every re-render
-  const waveform = useMemo(
-    () => Array.from({ length: 30 }, () => Math.random()),
-    [note.id]
-  );
+  const waveform = Array.from({ length: 30 }, () => Math.random());
 
   return (
     <View style={[styles.row, isMine && styles.rowMine]}>

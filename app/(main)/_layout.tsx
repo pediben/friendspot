@@ -1,5 +1,5 @@
 /**
- * Main tab layout — 5 tabs: Spots · Live · Moments · Messages · Finance
+ * Main tab layout — 6 tabs: Spots · Moments · Live · $ · Messages · Me
  *
  * All other screens (join, stories, about, dms/[id], circles/[id]/*, etc.)
  * live inside the tab stacks but are NOT shown in the tab bar.
@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { View } from "react-native";
 import { Tabs, router } from "expo-router";
 import { useAuthStore } from "@/hooks/useAuth";
+import { useNotifications } from "@/hooks/useNotifications";
 import { Ionicons } from "@expo/vector-icons";
 import { LogoMark } from "@/components/ui/LogoMark";
 
@@ -17,6 +18,7 @@ const TAB_BG   = "#0C0D0B";
 
 export default function MainLayout() {
   const { session } = useAuthStore();
+  useNotifications();
 
   useEffect(() => {
     if (!session) router.replace("/(auth)");
@@ -40,11 +42,11 @@ export default function MainLayout() {
         tabBarItemStyle: { gap: 2 },
       }}
     >
-      {/* ── Tab 1: Spots (friend groups) ── */}
+      {/* ── Tab 1: Spots ── */}
       <Tabs.Screen
         name="circles"
         options={{
-          title: "Spots",
+          title: "Friendspots",
           tabBarIcon: ({ focused }) => (
             <View style={{ opacity: focused ? 1 : 0.35 }}>
               <LogoMark size={26} />
@@ -53,18 +55,7 @@ export default function MainLayout() {
         }}
       />
 
-      {/* ── Tab 2: Live (voice rooms) ── */}
-      <Tabs.Screen
-        name="live"
-        options={{
-          title: "Live",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="mic-outline" size={size} color={color} />
-          ),
-        }}
-      />
-
-      {/* ── Tab 3: Moments (events + albums) ── */}
+      {/* ── Tab 2: Moments ── */}
       <Tabs.Screen
         name="moments"
         options={{
@@ -75,29 +66,30 @@ export default function MainLayout() {
         }}
       />
 
-      {/* ── Tab 4: Messages ── */}
+      {/* ── Tab 3: Live (Room + Private) ── */}
       <Tabs.Screen
-        name="dms"
+        name="live"
         options={{
-          title: "Messages",
+          title: "Live",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubble-ellipses-outline" size={size} color={color} />
+            <Ionicons name="mic-outline" size={size} color={color} />
           ),
         }}
       />
 
-      {/* ── Tab 5: Finance (Bets, Rounds, Expenses) ── */}
+      {/* ── Tab 4: Money ($) ── */}
       <Tabs.Screen
         name="finance"
         options={{
-          title: "Finance",
+          title: "Wallet",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="wallet-outline" size={size} color={color} />
           ),
         }}
       />
 
-      {/* ── Profile: accessible via header icon on Spots tab ── */}
+      {/* ── Messages + Me: accessible via top-right header icons ── */}
+      <Tabs.Screen name="dms"     options={{ tabBarButton: () => null }} />
       <Tabs.Screen name="profile" options={{ tabBarButton: () => null }} />
 
       {/* ── Hidden routes (no tab bar entry) ── */}

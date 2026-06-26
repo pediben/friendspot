@@ -95,7 +95,7 @@ export default function ProfileScreen() {
         />
         <View style={{ marginLeft: 16, flex: 1 }}>
           <Text style={styles.name}>{profile.display_name}</Text>
-          {profile.phone ? <Text style={styles.phone}>{profile.phone}</Text> : null}
+          <Text style={styles.phone}>{profile.phone}</Text>
           {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
         </View>
         <TouchableOpacity
@@ -110,9 +110,9 @@ export default function ProfileScreen() {
         <MenuItem icon="create-outline"           label="Edit profile"    onPress={() => router.push("/(main)/profile/edit" as any)} />
         <MenuItem icon="swap-horizontal-outline"  label="Payment links"   onPress={() => router.push("/(main)/profile/payments" as any)} />
         <MenuItem icon="shield-checkmark-outline" label="Two-factor auth" onPress={() => router.push("/(main)/profile/two-factor" as any)} />
-        <MenuItem icon="notifications-outline"    label="Notifications"   onPress={() => Alert.alert("Coming soon", "Notification settings are coming in a future update.")} />
-        <MenuItem icon="lock-closed-outline"      label="Privacy"         onPress={() => Alert.alert("Coming soon", "Privacy settings are coming in a future update.")} />
-        <MenuItem icon="help-circle-outline"      label="Help"            onPress={() => Alert.alert("Coming soon", "In-app help is coming soon. For now, email us at hello@friendspot.online.")} />
+        <MenuItem icon="notifications-outline"    label="Notifications"   onPress={() => {}} />
+        <MenuItem icon="lock-closed-outline"      label="Privacy"         onPress={() => {}} />
+        <MenuItem icon="help-circle-outline"      label="Help"            onPress={() => {}} />
         <MenuItem icon="information-circle-outline" label="About Friendspot" onPress={() => router.push("/(main)/about" as any)} />
         <MenuItem icon="log-out-outline" label="Sign out" onPress={signOut} danger />
       </View>

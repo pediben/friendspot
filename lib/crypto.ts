@@ -1,5 +1,5 @@
 /**
- * E2EE helpers for Friendspot
+ * E2EE helpers for Friendzone
  *
  * Strategy:
  *  - Each circle has a symmetric AES-256-GCM key derived from a shared secret.
@@ -14,7 +14,6 @@
  */
 
 import * as Crypto from "expo-crypto";
-import * as FileSystem from "expo-file-system";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -94,11 +93,7 @@ export async function encryptFileUri(
   return new Blob([JSON.stringify(payload)], { type: "application/octet-stream" });
 }
 
-/**
- * Convenience: decrypt a blob downloaded from Storage.
- * Writes the decrypted bytes to a temporary local file and returns its URI.
- * Uses expo-file-system instead of URL.createObjectURL (not available in React Native).
- */
+/** Convenience: decrypt a blob downloaded from Storage. Returns a local data URL. */
 export async function decryptBlobToUri(
   blob: Blob,
   hexKey: string,
@@ -107,11 +102,6 @@ export async function decryptBlobToUri(
   const text = await blob.text();
   const payload: EncryptedPayload = JSON.parse(text);
   const bytes = await decryptBytes(payload, hexKey);
-  const ext = mimeType.split("/")[1]?.replace("mpeg", "mp3") ?? "bin";
-  const tempPath = `${FileSystem.cacheDirectory}friendspot_dec_${Date.now()}.${ext}`;
-  const base64 = Buffer.from(bytes).toString("base64");
-  await FileSystem.writeAsStringAsync(tempPath, base64, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  return tempPath;
+  const decryptedBlob = new Blob([bytes as unknown as BlobPart], { type: mimeType });
+  return URL.createObjectURL(decryptedBlob);
 }

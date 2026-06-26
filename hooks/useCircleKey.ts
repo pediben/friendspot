@@ -9,13 +9,9 @@
  *   3. Unwrap using ECDH private key from SecureStore.
  *   4. Cache result in memory for the session.
  *
- * Self-heal: if no key row exists AND the current user is the circle admin
- * (creator), we generate and store one now. This recovers from the silent
- * failure path in createCircle where key generation succeeds for the circle
- * but the DB insert fails or is skipped.
- *
  * Returns { circleKey, loading, error }.
- * circleKey is null while loading or if the key is unavailable.
+ * circleKey is null while loading or if the key is unavailable
+ * (e.g. the member hasn't received a key share yet).
  */
 
 import { useEffect, useState } from "react";
@@ -25,10 +21,7 @@ import {
   getCachedCircleKey,
   setCachedCircleKey,
   unwrapCircleKey,
-  getOrCreatePublicKey,
-  wrapCircleKey,
 } from "@/lib/keyExchange";
-import { generateCircleKey } from "@/lib/crypto";
 
 export function useCircleKey(circleId: string) {
   const { session } = useAuthStore();
@@ -65,42 +58,7 @@ export function useCircleKey(circleId: string) {
         if (cancelled) return;
 
         if (dbErr || !data) {
-          // No key row — check if we're the admin and can self-generate
-          const { data: membership } = await supabase
-            .from("circle_members")
-            .select("role")
-            .eq("circle_id", circleId)
-            .eq("user_id", userId)
-            .single();
-
-          if (cancelled) return;
-
-          if (membership?.role === "admin" || membership?.role === "owner") {
-            // Creator's key was never persisted — generate it now
-            try {
-              const hexKey   = await generateCircleKey();
-              const myPubKey = await getOrCreatePublicKey();
-              const { encryptedKey, ephemeralPub } = await wrapCircleKey(hexKey, myPubKey);
-
-              await supabase.from("circle_keys").insert({
-                circle_id:     circleId,
-                user_id:       userId,
-                encrypted_key: encryptedKey,
-                ephemeral_pub: ephemeralPub,
-              });
-
-              if (cancelled) return;
-
-              setCachedCircleKey(circleId, hexKey);
-              setCircleKey(hexKey);
-              setLoading(false);
-              return;
-            } catch (genErr: any) {
-              console.error("[useCircleKey] self-heal failed:", genErr.message);
-            }
-          }
-
-          // Not admin or self-heal failed — waiting for key distribution
+          // Key not yet distributed to this member
           setError("key_pending");
           setLoading(false);
           return;

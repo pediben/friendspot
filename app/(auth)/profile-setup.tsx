@@ -51,7 +51,7 @@ export default function ProfileSetupScreen() {
 
     const { error } = await supabase
       .from("profiles")
-      .update({ display_name: name.trim(), avatar_url: avatarUrl })
+      .upsert({ id: user.id, display_name: name.trim(), avatar_url: avatarUrl })
       .eq("id", user.id);
 
     if (error) {
