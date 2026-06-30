@@ -1,12 +1,10 @@
 /**
  * useSubscription
  *
- * Reads the current user's Pro subscription status from Supabase.
- * The actual in-app purchase flow is abstracted behind `subscribe()` so
- * you can plug in any IAP SDK (RevenueCat, expo-in-app-purchases, etc.)
- * without touching the rest of the app.
+ * Reads the current user's Pro subscription status via RevenueCat.
+ * Supabase is used as a read-through cache / server-side source of truth.
  *
- * isPro = active subscription with expires_at in the future.
+ * isPro = active "pro" entitlement in RevenueCat.
  *
  * FREE TIER LIMITS
  *   - Max 3 Spots
@@ -23,7 +21,12 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
+import Purchases, {
+  PurchasesPackage,
+  CustomerInfo,
+  LOG_LEVEL,
+} from "react-native-purchases";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/hooks/useAuth";
 
@@ -42,11 +45,24 @@ export interface Subscription {
   expires_at: string;
 }
 
-// ── Product IDs (set these in App Store Connect + your IAP SDK) ─────────────
+// ── Product IDs ───────────────────────────────────────────────────────────────
 export const IAP_PRODUCTS = {
   monthly: "com.friendspot.app.pro.monthly",
   annual:  "com.friendspot.app.pro.annual",
 } as const;
+
+const RC_API_KEY_IOS = "appl_aDLXaTAGerefCULZDjULOjiYrhH";
+
+// ── Configure RevenueCat once at module load ──────────────────────────────────
+let _rcConfigured = false;
+function ensureRC() {
+  if (_rcConfigured) return;
+  if (Platform.OS === "ios") {
+    Purchases.configure({ apiKey: RC_API_KEY_IOS });
+    if (__DEV__) Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+  }
+  _rcConfigured = true;
+}
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -54,27 +70,63 @@ export function useSubscription() {
   const { session } = useAuthStore();
   const me = session?.user.id;
 
+  const [isPro,   setIsPro]   = useState(false);
+  const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [loading,      setLoading]      = useState(true);
 
   const load = useCallback(async () => {
-    if (!me) { setLoading(false); return; }
     setLoading(true);
     try {
-      const { data, error } = await (supabase as any)
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", me)
-        .in("status", ["active", "trial"])
-        .gte("expires_at", new Date().toISOString())
-        .order("expires_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      ensureRC();
+      if (me) {
+        await Purchases.logIn(me);
+      }
+      const info: CustomerInfo = await Purchases.getCustomerInfo();
+      const active = info.entitlements.active["pro"];
+      setIsPro(!!active);
 
-      if (error) throw error;
-      setSubscription(data ?? null);
+      // Mirror to Supabase for server-side checks
+      if (active && me) {
+        const expiresAt = active.expirationDate ?? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+        const plan: SubPlan = active.productIdentifier.includes("monthly") ? "monthly" : "annual";
+        await (supabase as any)
+          .from("subscriptions")
+          .upsert(
+            {
+              user_id:    me,
+              plan,
+              status:     "active",
+              started_at: active.originalPurchaseDate ?? new Date().toISOString(),
+              expires_at: expiresAt,
+            },
+            { onConflict: "user_id", ignoreDuplicates: false }
+          );
+        setSubscription({
+          id: active.productIdentifier,
+          plan,
+          status: "active",
+          started_at: active.originalPurchaseDate ?? new Date().toISOString(),
+          expires_at: expiresAt,
+        });
+      } else {
+        setSubscription(null);
+      }
     } catch (e: any) {
       console.warn("[useSubscription]", e.message);
+      // Fallback: check Supabase directly
+      if (me) {
+        const { data } = await (supabase as any)
+          .from("subscriptions")
+          .select("*")
+          .eq("user_id", me)
+          .in("status", ["active", "trial"])
+          .gte("expires_at", new Date().toISOString())
+          .order("expires_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        setSubscription(data ?? null);
+        setIsPro(!!data);
+      }
     } finally {
       setLoading(false);
     }
@@ -82,61 +134,59 @@ export function useSubscription() {
 
   useEffect(() => { load(); }, [load]);
 
-  const isPro = !loading && subscription !== null;
-
   // ── subscribe ─────────────────────────────────────────────────────────────
-  // Placeholder — wire this to your IAP SDK (RevenueCat recommended).
-  // After a successful purchase, write the subscription to Supabase.
   const subscribe = async (plan: SubPlan): Promise<boolean> => {
     try {
-      // TODO: Replace this block with your IAP SDK purchase call.
-      // Example with RevenueCat:
-      //   const { customerInfo } = await Purchases.purchaseProduct(IAP_PRODUCTS[plan]);
-      //   const entitlement = customerInfo.entitlements.active["pro"];
-      //   if (!entitlement) return false;
+      ensureRC();
+      const offerings = await Purchases.getOfferings();
+      const current = offerings.current;
+      if (!current) {
+        Alert.alert("Not available", "No offerings found. Please try again later.");
+        return false;
+      }
 
-      // For now, write directly to Supabase (dev/testing only).
-      // In production this should be done server-side after receipt validation.
-      if (!me) return false;
+      // Find the right package
+      const pkg: PurchasesPackage | undefined =
+        plan === "monthly"
+          ? current.monthly ?? current.availablePackages.find(p => p.product.identifier === IAP_PRODUCTS.monthly)
+          : current.annual  ?? current.availablePackages.find(p => p.product.identifier === IAP_PRODUCTS.annual);
 
-      const now      = new Date();
-      const expiresAt = new Date(now);
-      if (plan === "monthly") expiresAt.setMonth(expiresAt.getMonth() + 1);
-      else                    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+      if (!pkg) {
+        Alert.alert("Not available", `${plan} plan not found.`);
+        return false;
+      }
 
-      const { error } = await (supabase as any)
-        .from("subscriptions")
-        .upsert(
-          {
-            user_id:    me,
-            plan,
-            status:     "active",
-            started_at: now.toISOString(),
-            expires_at: expiresAt.toISOString(),
-          },
-          { onConflict: "user_id", ignoreDuplicates: false }
-        );
-
-      if (error) throw error;
-      await load();
-      return true;
+      const { customerInfo } = await Purchases.purchasePackage(pkg);
+      const active = customerInfo.entitlements.active["pro"];
+      if (active) {
+        await load();
+        return true;
+      }
+      return false;
     } catch (e: any) {
-      Alert.alert("Purchase failed", e.message);
+      if (!e.userCancelled) {
+        Alert.alert("Purchase failed", e.message);
+      }
       return false;
     }
   };
 
   // ── restorePurchases ──────────────────────────────────────────────────────
   const restorePurchases = async (): Promise<void> => {
-    // TODO: Replace with IAP SDK restore call.
-    // Example: const { customerInfo } = await Purchases.restorePurchases();
-    await load();
-    Alert.alert(
-      subscription ? "Subscription restored!" : "No active subscription found",
-      subscription
-        ? `Your ${subscription.plan} plan is active.`
-        : "No active subscription found for this Apple ID.",
-    );
+    try {
+      ensureRC();
+      const info = await Purchases.restorePurchases();
+      const active = info.entitlements.active["pro"];
+      await load();
+      Alert.alert(
+        active ? "Subscription restored!" : "No active subscription found",
+        active
+          ? `Your Pro plan has been restored.`
+          : "No active subscription found for this Apple ID.",
+      );
+    } catch (e: any) {
+      Alert.alert("Restore failed", e.message);
+    }
   };
 
   return {

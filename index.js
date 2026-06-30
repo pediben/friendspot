@@ -1,6 +1,18 @@
 // Polyfill web APIs missing in Hermes before anything else loads.
 // (Babel hoists `import` statements, so these MUST be require()-based.)
 
+// Polyfill crypto.getRandomValues for Hermes — required by @noble/curves.
+// expo-crypto.getRandomBytes is synchronous and safe on all platforms.
+if (!globalThis.crypto) globalThis.crypto = {};
+if (typeof globalThis.crypto.getRandomValues !== 'function') {
+  const { getRandomBytes } = require('expo-crypto');
+  globalThis.crypto.getRandomValues = function getRandomValues(typedArray) {
+    const bytes = getRandomBytes(typedArray.byteLength);
+    typedArray.set(bytes);
+    return typedArray;
+  };
+}
+
 if (typeof globalThis.DOMException === 'undefined') {
   globalThis.DOMException = class DOMException extends Error {
     constructor(message, name) {
