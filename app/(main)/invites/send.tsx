@@ -1,23 +1,24 @@
 /**
  * Send Invite screen
  *
- * Shows event details, lets the user pick a cover photo, compose a message,
- * and share the invite. Also offers "Add to my Calendar" via expo-calendar.
+ * Shows an evite-style visual invite card, lets the user add a personal note,
+ * share the invite, and add the event to any calendar on their device.
  */
 import { useState, useEffect } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   TextInput, Image, Share, Alert, Platform, ActivityIndicator,
-  KeyboardAvoidingView,
+  KeyboardAvoidingView, ActionSheetIOS,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import { Colors } from "@/constants/Colors";
 import { useEventDetail } from "@/hooks/useEvents";
 
-// expo-calendar is optional — user must run: npx expo install expo-calendar
+// expo-calendar is optional — installed via: npx expo install expo-calendar
 let Calendar: any = null;
 try { Calendar = require("expo-calendar"); } catch {}
 
@@ -30,12 +31,24 @@ const FAINT  = Colors.textFaint;
 const SAGE   = Colors.sage;
 const GREEN  = Colors.green;
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function formatFull(iso: string) {
   const d = new Date(iso);
   return d.toLocaleDateString("en-US", {
     weekday: "long", month: "long", day: "numeric",
     hour: "numeric", minute: "2-digit",
   });
+}
+
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+function formatTime(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
 function buildInviteText(params: {
@@ -62,6 +75,103 @@ function buildInviteText(params: {
   return lines.join("\n");
 }
 
+// ── Visual invite card ────────────────────────────────────────────────────────
+
+function InviteCard({
+  title,
+  iso,
+  location,
+  circleName,
+  note,
+  photo,
+}: {
+  title: string;
+  iso: string;
+  location?: string | null;
+  circleName: string;
+  note: string;
+  photo: string | null;
+}) {
+  return (
+    <View style={card.root}>
+      {/* Background: cover photo or gradient */}
+      {photo ? (
+        <Image source={{ uri: photo }} style={card.bg} resizeMode="cover" />
+      ) : (
+        <LinearGradient
+          colors={["#1E2B1A", "#2D4A24", "#3D6B35", "#8FA876"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={card.bg}
+        />
+      )}
+
+      {/* Dark overlay for readability */}
+      <View style={card.overlay} />
+
+      {/* Card content */}
+      <View style={card.content}>
+        {/* Top label */}
+        <View style={card.hostBadge}>
+          <Text style={card.hostText}>You're invited</Text>
+        </View>
+
+        {/* Event title */}
+        <Text style={card.title}>{title}</Text>
+
+        {/* Divider */}
+        <View style={card.divider} />
+
+        {/* Date & time */}
+        <View style={card.metaRow}>
+          <View style={card.metaIcon}>
+            <Ionicons name="calendar-outline" size={14} color={SAGE} />
+          </View>
+          <View>
+            <Text style={card.metaLabel}>{formatDate(iso)}</Text>
+            <Text style={card.metaValue}>{formatTime(iso)}</Text>
+          </View>
+        </View>
+
+        {/* Location */}
+        {location ? (
+          <View style={card.metaRow}>
+            <View style={card.metaIcon}>
+              <Ionicons name="location-outline" size={14} color={SAGE} />
+            </View>
+            <Text style={card.metaLabel} numberOfLines={1}>{location}</Text>
+          </View>
+        ) : null}
+
+        {/* Group */}
+        <View style={card.metaRow}>
+          <View style={card.metaIcon}>
+            <Ionicons name="people-outline" size={14} color={SAGE} />
+          </View>
+          <Text style={card.metaLabel}>{circleName}</Text>
+        </View>
+
+        {/* Personal note */}
+        {note.trim() ? (
+          <View style={card.noteBox}>
+            <Text style={card.noteText}>"{note.trim()}"</Text>
+          </View>
+        ) : null}
+
+        {/* Footer */}
+        <View style={card.footer}>
+          <Text style={card.footerText}>Friendspot</Text>
+          <View style={card.rsvpPill}>
+            <Text style={card.rsvpText}>RSVP via app</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ── Main screen ───────────────────────────────────────────────────────────────
+
 export default function SendInviteScreen() {
   const { eventId } = useLocalSearchParams<{ eventId: string }>();
   const insets = useSafeAreaInsets();
@@ -72,7 +182,7 @@ export default function SendInviteScreen() {
   const [calBusy, setCalBusy] = useState(false);
   const [calDone, setCalDone] = useState(false);
 
-  // ── Pick photo ──────────────────────────────────────────────────────────────
+  // ── Pick cover photo ────────────────────────────────────────────────────────
   const pickPhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
@@ -82,7 +192,7 @@ export default function SendInviteScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [16, 9],
+      aspect: [4, 3],
       quality: 0.85,
     });
     if (!result.canceled && result.assets[0]) {
@@ -90,7 +200,7 @@ export default function SendInviteScreen() {
     }
   };
 
-  // ── Share invite ─────────────────────────────────────────────────────────────
+  // ── Share invite ────────────────────────────────────────────────────────────
   const handleShare = async () => {
     if (!event) return;
     const text = buildInviteText({
@@ -107,12 +217,12 @@ export default function SendInviteScreen() {
     }
   };
 
-  // ── Add to iOS Calendar ──────────────────────────────────────────────────────
+  // ── Add to Calendar (with picker) ──────────────────────────────────────────
   const addToCalendar = async () => {
     if (!event) return;
     if (!Calendar) {
       Alert.alert(
-        "expo-calendar not installed",
+        "Calendar not available",
         'Run "npx expo install expo-calendar" then rebuild the app.',
       );
       return;
@@ -125,22 +235,57 @@ export default function SendInviteScreen() {
         setCalBusy(false);
         return;
       }
-      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-      const defaultCal = calendars.find((c: any) => c.allowsModifications) ?? calendars[0];
-      if (!defaultCal) throw new Error("No writable calendar found");
 
-      const startDate = new Date(event.event_date);
-      const endDate   = new Date(startDate.getTime() + 60 * 60 * 1000); // +1 hr
+      const allCals = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+      const writableCals = allCals.filter((c: any) => c.allowsModifications);
+      if (writableCals.length === 0) throw new Error("No writable calendar found");
 
-      await Calendar.createEventAsync(defaultCal.id, {
-        title:    event.title,
-        startDate,
-        endDate,
-        location: event.location ?? undefined,
-        notes:    event.description ?? undefined,
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      });
-      setCalDone(true);
+      const doSave = async (calId: string) => {
+        const startDate = new Date(event.event_date);
+        const endDate   = new Date(startDate.getTime() + 60 * 60 * 1000);
+        await Calendar.createEventAsync(calId, {
+          title:    event.title,
+          startDate,
+          endDate,
+          location: event.location ?? undefined,
+          notes:    event.description ?? undefined,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        });
+        setCalDone(true);
+      };
+
+      // If only one writable calendar, save immediately
+      if (writableCals.length === 1) {
+        await doSave(writableCals[0].id);
+        return;
+      }
+
+      // Multiple calendars — let user pick (iOS ActionSheet)
+      if (Platform.OS === "ios") {
+        const names = writableCals.map((c: any) => c.title);
+        ActionSheetIOS.showActionSheetWithOptions(
+          {
+            title: "Add to which calendar?",
+            options: [...names, "Cancel"],
+            cancelButtonIndex: names.length,
+          },
+          async (idx) => {
+            if (idx < writableCals.length) {
+              setCalBusy(true);
+              try { await doSave(writableCals[idx].id); }
+              catch (e: any) { Alert.alert("Couldn't save", e.message); }
+              finally { setCalBusy(false); }
+            } else {
+              setCalBusy(false);
+            }
+          }
+        );
+        // ActionSheet is async via callback — don't reset busy here
+        return;
+      } else {
+        // Android: pick first writable
+        await doSave(writableCals[0].id);
+      }
     } catch (e: any) {
       Alert.alert("Couldn't add event", e.message);
     } finally {
@@ -168,6 +313,8 @@ export default function SendInviteScreen() {
     );
   }
 
+  const circleName = (event as any).circle_name ?? "your Spot";
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: BG }}
@@ -178,7 +325,7 @@ export default function SendInviteScreen() {
         <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="chevron-back" size={26} color={TEXT} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Send Invite</Text>
+        <Text style={styles.headerTitle}>Your Invite</Text>
         <TouchableOpacity onPress={handleShare} hitSlop={12}>
           <Text style={styles.shareBtn}>Share</Text>
         </TouchableOpacity>
@@ -188,71 +335,35 @@ export default function SendInviteScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Cover photo */}
-        <TouchableOpacity onPress={pickPhoto} activeOpacity={0.8} style={styles.photoPicker}>
-          {photo ? (
-            <Image source={{ uri: photo }} style={styles.coverPhoto} resizeMode="cover" />
-          ) : (
-            <View style={styles.photoPlaceholder}>
-              <Ionicons name="image-outline" size={32} color={MUTED} />
-              <Text style={styles.photoHint}>Add a cover photo</Text>
-              <Text style={styles.photoHintSub}>Tap to pick from your library</Text>
-            </View>
-          )}
-          {photo && (
-            <View style={styles.changePhotoOverlay}>
-              <Ionicons name="camera-outline" size={18} color="#fff" />
-              <Text style={styles.changePhotoText}>Change</Text>
-            </View>
-          )}
+        {/* ── Visual invite card ── */}
+        <InviteCard
+          title={event.title}
+          iso={event.event_date}
+          location={event.location}
+          circleName={circleName}
+          note={note}
+          photo={photo}
+        />
+
+        {/* Photo picker hint */}
+        <TouchableOpacity onPress={pickPhoto} style={styles.photoHintRow} activeOpacity={0.7}>
+          <Ionicons name={photo ? "image" : "image-outline"} size={16} color={SAGE} />
+          <Text style={styles.photoHintText}>
+            {photo ? "Change cover photo" : "Add a cover photo to the card"}
+          </Text>
         </TouchableOpacity>
-
-        {/* Event details card */}
-        <View style={styles.detailCard}>
-          <Text style={styles.eventTitle}>{event.title}</Text>
-
-          <View style={styles.metaRow}>
-            <Ionicons name="calendar-outline" size={14} color={SAGE} />
-            <Text style={styles.metaText}>{formatFull(event.event_date)}</Text>
-          </View>
-
-          {event.location ? (
-            <View style={styles.metaRow}>
-              <Ionicons name="location-outline" size={14} color={SAGE} />
-              <Text style={styles.metaText}>{event.location}</Text>
-            </View>
-          ) : null}
-
-          {event.description ? (
-            <Text style={styles.description}>{event.description}</Text>
-          ) : null}
-        </View>
 
         {/* Personal note */}
         <Text style={styles.label}>Personal note (optional)</Text>
         <TextInput
           style={styles.noteInput}
-          placeholder="Add a message to your invite…"
+          placeholder="Add a message — it'll appear on the invite card…"
           placeholderTextColor={MUTED}
           value={note}
           onChangeText={setNote}
           multiline
-          maxLength={300}
+          maxLength={200}
         />
-
-        {/* Preview */}
-        <Text style={styles.label}>Invite preview</Text>
-        <View style={styles.previewBox}>
-          <Text style={styles.previewText}>
-            {buildInviteText({
-              title:    event.title,
-              date:     formatFull(event.event_date),
-              location: event.location,
-              circle:   (event as any).circle_name ?? "your Spot",
-              note,
-            })}
-          </Text>
-        </View>
 
         {/* Actions */}
         <TouchableOpacity style={styles.primaryBtn} onPress={handleShare} activeOpacity={0.8}>
@@ -285,35 +396,44 @@ export default function SendInviteScreen() {
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
+
+const card = StyleSheet.create({
+  root:       { borderRadius: 20, overflow: "hidden", marginBottom: 4, aspectRatio: 4 / 5 },
+  bg:         { ...StyleSheet.absoluteFillObject },
+  overlay:    { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
+  content:    { flex: 1, padding: 24, justifyContent: "flex-end" },
+  hostBadge:  { alignSelf: "flex-start", backgroundColor: "rgba(143,168,118,0.3)", borderWidth: 1, borderColor: "rgba(143,168,118,0.5)", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4, marginBottom: 12 },
+  hostText:   { fontSize: 11, fontWeight: "700", color: SAGE, letterSpacing: 0.8, textTransform: "uppercase" },
+  title:      { fontSize: 28, fontWeight: "900", color: "#fff", lineHeight: 34, marginBottom: 16 },
+  divider:    { height: 1, backgroundColor: "rgba(255,255,255,0.2)", marginBottom: 16 },
+  metaRow:    { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
+  metaIcon:   { width: 26, height: 26, borderRadius: 8, backgroundColor: "rgba(143,168,118,0.2)", alignItems: "center", justifyContent: "center" },
+  metaLabel:  { fontSize: 13, color: "rgba(255,255,255,0.85)", fontWeight: "600", flex: 1 },
+  metaValue:  { fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 1 },
+  noteBox:    { marginTop: 8, marginBottom: 8, borderLeftWidth: 2, borderLeftColor: SAGE, paddingLeft: 12 },
+  noteText:   { fontSize: 13, color: "rgba(255,255,255,0.75)", fontStyle: "italic", lineHeight: 19 },
+  footer:     { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16 },
+  footerText: { fontSize: 12, fontWeight: "800", color: "rgba(255,255,255,0.4)", letterSpacing: 1 },
+  rsvpPill:   { backgroundColor: SAGE, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
+  rsvpText:   { fontSize: 11, fontWeight: "700", color: "#0C0D0B", letterSpacing: 0.5 },
+});
+
 const styles = StyleSheet.create({
-  root:               { flex: 1, backgroundColor: BG },
-  header:             { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: BORDER },
-  headerTitle:        { fontSize: 18, fontWeight: "700", color: TEXT },
-  shareBtn:           { fontSize: 16, fontWeight: "700", color: SAGE },
-  content:            { padding: 20, gap: 10 },
-  // Photo
-  photoPicker:        { borderRadius: 16, overflow: "hidden", backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, marginBottom: 6 },
-  photoPlaceholder:   { height: 180, alignItems: "center", justifyContent: "center", gap: 6 },
-  coverPhoto:         { width: "100%", height: 180 },
-  photoHint:          { fontSize: 15, fontWeight: "600", color: MUTED },
-  photoHintSub:       { fontSize: 12, color: FAINT },
-  changePhotoOverlay: { position: "absolute", bottom: 10, right: 12, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
-  changePhotoText:    { fontSize: 12, fontWeight: "600", color: "#fff" },
-  // Event detail card
-  detailCard:         { backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 14, padding: 16, gap: 8 },
-  eventTitle:         { fontSize: 20, fontWeight: "800", color: TEXT },
-  metaRow:            { flexDirection: "row", alignItems: "center", gap: 7 },
-  metaText:           { fontSize: 14, color: MUTED },
-  description:        { fontSize: 14, color: MUTED, marginTop: 4, lineHeight: 20 },
+  root:           { flex: 1, backgroundColor: BG },
+  header:         { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: BORDER },
+  headerTitle:    { fontSize: 18, fontWeight: "700", color: TEXT },
+  shareBtn:       { fontSize: 16, fontWeight: "700", color: SAGE },
+  content:        { padding: 16, gap: 10 },
+  // Photo hint
+  photoHintRow:   { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "center", paddingVertical: 6 },
+  photoHintText:  { fontSize: 13, color: SAGE, fontWeight: "600" },
   // Note input
-  label:              { fontSize: 12, fontWeight: "700", color: FAINT, textTransform: "uppercase", letterSpacing: 0.6, marginTop: 6 },
-  noteInput:          { backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: TEXT, minHeight: 90, textAlignVertical: "top" },
-  // Preview
-  previewBox:         { backgroundColor: "rgba(255,255,255,0.03)", borderWidth: 1, borderColor: BORDER, borderRadius: 12, padding: 14 },
-  previewText:        { fontSize: 13, color: MUTED, lineHeight: 20 },
+  label:          { fontSize: 12, fontWeight: "700", color: FAINT, textTransform: "uppercase", letterSpacing: 0.6, marginTop: 6 },
+  noteInput:      { backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: TEXT, minHeight: 80, textAlignVertical: "top" },
   // Buttons
-  primaryBtn:         { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: SAGE, borderRadius: 14, paddingVertical: 15, marginTop: 10 },
-  primaryBtnText:     { fontSize: 16, fontWeight: "700", color: "#fff" },
-  secondaryBtn:       { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderColor: SAGE, borderRadius: 14, paddingVertical: 14 },
-  secondaryBtnText:   { fontSize: 15, fontWeight: "600", color: SAGE },
+  primaryBtn:     { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: SAGE, borderRadius: 14, paddingVertical: 15, marginTop: 6 },
+  primaryBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
+  secondaryBtn:   { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderColor: SAGE, borderRadius: 14, paddingVertical: 14 },
+  secondaryBtnText:{ fontSize: 15, fontWeight: "600", color: SAGE },
 });
