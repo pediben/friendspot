@@ -16,7 +16,7 @@ export function useCircles() {
   const [channelName] = useState(() => `circle_members_${Math.random().toString(36).slice(2)}`);
 
   const fetchCircles = useCallback(async () => {
-    if (!userId) return;
+    if (!userId) { setLoading(false); return; }
 
     const { data, error } = await supabase
       .from("circle_members")
@@ -38,14 +38,16 @@ export function useCircles() {
       return;
     }
 
-    const result: CircleWithMembers[] = (data ?? []).map((row: any) => {
-      const c = row.circles;
-      const members: MemberProfile[] = c.circle_members.map((m: any) => ({
-        ...m.profiles,
-        role: m.role ?? "member",
-      }));
-      return { ...c, members, member_count: members.length };
-    });
+    const result: CircleWithMembers[] = (data ?? [])
+      .filter((row: any) => row.circles != null)
+      .map((row: any) => {
+        const c = row.circles;
+        const members: MemberProfile[] = (c.circle_members ?? []).map((m: any) => ({
+          ...m.profiles,
+          role: m.role ?? "member",
+        }));
+        return { ...c, members, member_count: members.length };
+      });
 
     setCircles(result);
     setLoading(false);

@@ -4,11 +4,11 @@
  * Step 1 — fill in event details + pick a Spot
  * Step 2 — creates the event, then goes to Send Invite (send.tsx)
  */
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, Alert, Platform, KeyboardAvoidingView,
-  ActivityIndicator,
+  ActivityIndicator, Modal, Keyboard,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -46,7 +46,7 @@ export default function CreateInviteScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuthStore();
   const me = session?.user.id ?? "";
-  const { circles } = useCircles();
+  const { circles, createCircle } = useCircles();
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -60,13 +60,38 @@ export default function CreateInviteScreen() {
   const [location,    setLocation]    = useState("");
   const [dateStr,     setDateStr]     = useState(defaultDate);
   const [timeStr,     setTimeStr]     = useState("12:00 PM");
-  const [spotId,      setSpotId]      = useState<string | null>(circles[0]?.id ?? null);
-  const [saving,      setSaving]      = useState(false);
+  const [spotId,      setSpotId]      = useState<string | null>(null);
+  const savingRef = useRef(false);
+  const [saving,        setSaving]        = useState(false);
+  const [showNewSpot,   setShowNewSpot]   = useState(false);
+  const [newSpotName,   setNewSpotName]   = useState("");
+  const [newSpotCreating, setNewSpotCreating] = useState(false);
+
+  // Auto-select first spot when circles finish loading
+  useEffect(() => {
+    if (spotId === null && circles.length > 0) setSpotId(circles[0].id);
+  }, [circles, spotId]);
+
+  const handleCreateSpot = async () => {
+    if (!newSpotName.trim()) return;
+    setNewSpotCreating(true);
+    try {
+      const circle = await createCircle(newSpotName.trim(), "📍");
+      if (circle?.id) setSpotId(circle.id);
+      setShowNewSpot(false);
+      setNewSpotName("");
+    } catch (e: any) {
+      Alert.alert("Couldn't create Spot", e.message);
+    } finally {
+      setNewSpotCreating(false);
+    }
+  };
 
   const dateError = dateStr.length > 0 && !parseDateTime(dateStr, timeStr);
 
   const handleCreate = async () => {
-    if (saving) return; // guard against double-tap
+    if (savingRef.current) return; // ref-based guard prevents same-frame double-tap
+    if (!session?.user.id) { Alert.alert("Not signed in", "Please sign in again."); return; }
     if (!title.trim()) { Alert.alert("Title required"); return; }
     if (!spotId)        { Alert.alert("Pick a Spot"); return; }
     const eventDate = parseDateTime(dateStr, timeStr);
@@ -76,6 +101,7 @@ export default function CreateInviteScreen() {
       return;
     }
 
+    savingRef.current = true;
     setSaving(true);
     try {
       const eventId = await createEvent({
@@ -91,6 +117,7 @@ export default function CreateInviteScreen() {
     } catch (e: any) {
       Alert.alert("Couldn't create invite", e.message);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -142,7 +169,7 @@ export default function CreateInviteScreen() {
           {/* Create new Spot */}
           <TouchableOpacity
             style={styles.newSpotChip}
-            onPress={() => router.push("/(main)/circles" as any)}
+            onPress={() => { Keyboard.dismiss(); setShowNewSpot(true); }}
             activeOpacity={0.75}
           >
             <Ionicons name="add-circle-outline" size={22} color={SAGE} />
@@ -223,6 +250,54 @@ export default function CreateInviteScreen() {
           }
         </TouchableOpacity>
       </ScrollView>
+
+      {/* ── New Spot Modal ── */}
+      <Modal visible={showNewSpot} animationType="slide" transparent>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => { Keyboard.dismiss(); setShowNewSpot(false); setNewSpotName(""); }}
+          />
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>New Spot</Text>
+            <Text style={styles.modalSub}>Name your group of friends for this invite</Text>
+
+            <Text style={styles.modalLabel}>GROUP NAME</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. College Crew, Fam, Work Gang…"
+              placeholderTextColor={FAINT}
+              value={newSpotName}
+              onChangeText={setNewSpotName}
+              autoFocus
+              maxLength={40}
+              returnKeyType="done"
+              onSubmitEditing={handleCreateSpot}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => { Keyboard.dismiss(); setShowNewSpot(false); setNewSpotName(""); }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalCreate, (!newSpotName.trim() || newSpotCreating) && { opacity: 0.5 }]}
+                onPress={handleCreateSpot}
+                disabled={!newSpotName.trim() || newSpotCreating}
+              >
+                {newSpotCreating
+                  ? <ActivityIndicator color={BG} size="small" />
+                  : <Text style={styles.modalCreateText}>Create Spot</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -243,9 +318,22 @@ const styles = StyleSheet.create({
   spotIcon:       { fontSize: 22, marginBottom: 2 },
   spotName:       { fontSize: 13, fontWeight: "700", color: MUTED, textAlign: "center" },
   spotMeta:       { fontSize: 11, color: FAINT, textAlign: "center" },
-  newSpotChip:    { flexDirection: "column", alignItems: "center", gap: 3, borderWidth: 1.5, borderColor: SAGE, borderStyle: "dashed", borderRadius: 16, paddingHorizontal: 12, paddingVertical: 12, marginRight: 8, minWidth: 80, justifyContent: "center" },
+  newSpotChip:    { flexDirection: "column", alignItems: "center", gap: 3, borderWidth: 1.5, borderColor: SAGE, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 12, marginRight: 8, minWidth: 80, justifyContent: "center", backgroundColor: "rgba(143,168,118,0.06)" },
   newSpotText:    { fontSize: 13, fontWeight: "700", color: SAGE, textAlign: "center" },
   // Button
   createBtn:      { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: SAGE, borderRadius: 14, paddingVertical: 15, marginTop: 24 },
   createBtnText:  { fontSize: 16, fontWeight: "700", color: "#fff" },
+  // New Spot Modal
+  modalOverlay:   { flex: 1, backgroundColor: "rgba(0,0,0,0.55)" },
+  modalSheet:     { backgroundColor: "#1A1C18", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, gap: 8 },
+  modalHandle:    { width: 36, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.15)", alignSelf: "center", marginBottom: 16 },
+  modalTitle:     { fontSize: 20, fontWeight: "800", color: TEXT },
+  modalSub:       { fontSize: 13, color: MUTED, marginBottom: 8 },
+  modalLabel:     { fontSize: 11, fontWeight: "700", color: FAINT, letterSpacing: 0.6, marginTop: 8, marginBottom: 6 },
+  modalInput:     { backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, color: TEXT },
+  modalActions:   { flexDirection: "row", gap: 10, marginTop: 16 },
+  modalCancel:    { flex: 1, borderWidth: 1, borderColor: BORDER, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
+  modalCancelText:{ fontSize: 15, fontWeight: "600", color: MUTED },
+  modalCreate:    { flex: 2, backgroundColor: SAGE, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
+  modalCreateText:{ fontSize: 15, fontWeight: "700", color: BG },
 });

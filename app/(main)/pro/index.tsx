@@ -178,7 +178,7 @@ export default function ProScreen() {
           {loading
             ? <ActivityIndicator color={BG} />
             : <Text style={styles.ctaBtnText}>
-                {plan === "annual" ? "Start free trial" : "Subscribe monthly"}
+                {plan === "annual" ? "Subscribe annually" : "Subscribe monthly"}
               </Text>
           }
         </TouchableOpacity>

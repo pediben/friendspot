@@ -55,6 +55,7 @@ const RC_API_KEY_IOS = process.env.EXPO_PUBLIC_RC_IOS_API_KEY ?? "appl_aDLXaTAGe
 
 // ── Configure RevenueCat once at module load ──────────────────────────────────
 let _rcConfigured = false;
+let _rcLoggedInAs = "";
 function ensureRC() {
   if (_rcConfigured) return;
   if (Platform.OS === "ios") {
@@ -79,8 +80,9 @@ export function useSubscription() {
     setLoading(true);
     try {
       ensureRC();
-      if (me) {
+      if (me && _rcLoggedInAs !== me) {
         await Purchases.logIn(me);
+        _rcLoggedInAs = me;
       }
       const info: CustomerInfo = await Purchases.getCustomerInfo();
       const active = info.entitlements.active["pro"];
@@ -88,7 +90,8 @@ export function useSubscription() {
 
       // Mirror to Supabase for server-side checks
       if (active && me) {
-        const expiresAt = active.expirationDate ?? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+        // null expirationDate = lifetime entitlement — use far-future sentinel
+        const expiresAt = active.expirationDate ?? "2099-12-31T00:00:00.000Z";
         const plan: SubPlan = active.productIdentifier.includes("monthly") ? "monthly" : "annual";
         await (supabase as any)
           .from("subscriptions")

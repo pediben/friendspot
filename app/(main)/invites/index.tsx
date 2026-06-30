@@ -233,13 +233,22 @@ export default function InvitesScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Invite</Text>
-        <TouchableOpacity
-          onPress={() => router.push("/(main)/invites/create" as any)}
-          hitSlop={12}
-          style={styles.addBtn}
-        >
-          <Ionicons name="add" size={24} color={SAGE} />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.glassBtn} onPress={() => router.push("/(main)/dms" as any)} hitSlop={8}>
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color="rgba(244,245,240,0.7)" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.glassBtn} onPress={() => router.push("/(main)/profile" as any)} hitSlop={8}>
+            <Ionicons name="person-circle-outline" size={22} color="rgba(244,245,240,0.7)" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/(main)/invites/create" as any)}
+            style={styles.createEventBtn}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={18} color={BG} />
+            <Text style={styles.createEventText}>New Event</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
@@ -292,7 +301,10 @@ const styles = StyleSheet.create({
   root:          { flex: 1, backgroundColor: BG },
   header:        { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: BORDER },
   headerTitle:   { fontSize: 24, fontWeight: "800", color: TEXT },
-  addBtn:        { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(143,168,118,0.15)", alignItems: "center", justifyContent: "center" },
+  headerRight:   { flexDirection: "row", alignItems: "center", gap: 8 },
+  glassBtn:      { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center" },
+  createEventBtn:{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: SAGE, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8 },
+  createEventText:{ fontSize: 13, fontWeight: "700", color: BG },
   sectionRow:    { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
   sectionLabel:  { fontSize: 13, fontWeight: "700", color: FAINT, textTransform: "uppercase", letterSpacing: 0.8 },
   clearBtn:      { fontSize: 13, color: SAGE, fontWeight: "600" },

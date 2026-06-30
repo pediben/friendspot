@@ -35,9 +35,11 @@ export function useAllEvents() {
       const circleIds: string[] = (membership ?? []).map((m: any) => m.circle_id);
       const circleMap: Record<string, { name: string; icon: string }> = {};
       (membership ?? []).forEach((m: any) => {
+        const rawIcon = m.circles?.icon;
         circleMap[m.circle_id] = {
           name: m.circles?.name ?? "Spot",
-          icon: m.circles?.icon ?? "📍",
+          // Don't render photo URLs as text — fall back to pin emoji
+          icon: rawIcon?.startsWith("http") ? "📍" : (rawIcon ?? "📍"),
         };
       });
 
