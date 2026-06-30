@@ -232,6 +232,13 @@ export default function InvitesScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Invite</Text>
+        <TouchableOpacity
+          onPress={() => router.push("/(main)/invites/create" as any)}
+          hitSlop={12}
+          style={styles.addBtn}
+        >
+          <Ionicons name="add" size={24} color={SAGE} />
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -282,8 +289,9 @@ export default function InvitesScreen() {
 
 const styles = StyleSheet.create({
   root:          { flex: 1, backgroundColor: BG },
-  header:        { paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: BORDER },
+  header:        { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: BORDER },
   headerTitle:   { fontSize: 24, fontWeight: "800", color: TEXT },
+  addBtn:        { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(143,168,118,0.15)", alignItems: "center", justifyContent: "center" },
   sectionRow:    { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
   sectionLabel:  { fontSize: 13, fontWeight: "700", color: FAINT, textTransform: "uppercase", letterSpacing: 0.8 },
   clearBtn:      { fontSize: 13, color: SAGE, fontWeight: "600" },

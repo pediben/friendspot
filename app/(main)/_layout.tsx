@@ -1,8 +1,6 @@
 /**
- * Main tab layout — 5 tabs: Spots · Live · Moments · Messages · Finance
- *
- * All other screens (join, stories, about, dms/[id], circles/[id]/*, etc.)
- * live inside the tab stacks but are NOT shown in the tab bar.
+ * Main tab layout — Spots · Invite · Live · Moments · Finance
+ * Messages is hidden from the tab bar — accessible via the Spots header icon.
  */
 import { useEffect } from "react";
 import { View } from "react-native";
@@ -53,7 +51,18 @@ export default function MainLayout() {
         }}
       />
 
-      {/* ── Tab 2: Live (voice rooms) ── */}
+      {/* ── Tab 2: Invite (calendar + send invites) ── */}
+      <Tabs.Screen
+        name="invites"
+        options={{
+          title: "Invite",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="send-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
+      {/* ── Tab 3: Live (voice rooms) ── */}
       <Tabs.Screen
         name="live"
         options={{
@@ -64,24 +73,13 @@ export default function MainLayout() {
         }}
       />
 
-      {/* ── Tab 3: Moments (events + albums) ── */}
+      {/* ── Tab 4: Moments (events + albums) ── */}
       <Tabs.Screen
         name="moments"
         options={{
           title: "Moments",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="sparkles-outline" size={size} color={color} />
-          ),
-        }}
-      />
-
-      {/* ── Tab 4: Messages ── */}
-      <Tabs.Screen
-        name="dms"
-        options={{
-          title: "Messages",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubble-ellipses-outline" size={size} color={color} />
           ),
         }}
       />
@@ -97,16 +95,8 @@ export default function MainLayout() {
         }}
       />
 
-      {/* ── Tab 6: Invite (calendar + send invites) ── */}
-      <Tabs.Screen
-        name="invites"
-        options={{
-          title: "Invite",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="send-outline" size={size} color={color} />
-          ),
-        }}
-      />
+      {/* ── Messages: hidden from tab bar, accessible via Spots header icon ── */}
+      <Tabs.Screen name="dms" options={{ tabBarButton: () => null }} />
 
       {/* ── Profile: accessible via header icon on Spots tab ── */}
       <Tabs.Screen name="profile" options={{ tabBarButton: () => null }} />
