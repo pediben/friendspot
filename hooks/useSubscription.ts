@@ -20,7 +20,7 @@
  *   - Custom invite link
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Alert, Platform } from "react-native";
 import Purchases, {
   PurchasesPackage,
@@ -60,8 +60,9 @@ function ensureRC() {
   if (Platform.OS === "ios") {
     Purchases.configure({ apiKey: RC_API_KEY_IOS });
     if (__DEV__) Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+    _rcConfigured = true;
   }
-  _rcConfigured = true;
+  // Android: add RC_API_KEY_ANDROID branch here when ready
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
@@ -135,7 +136,7 @@ export function useSubscription() {
   useEffect(() => { load(); }, [load]);
 
   // ── subscribe ─────────────────────────────────────────────────────────────
-  const subscribe = async (plan: SubPlan): Promise<boolean> => {
+  const subscribe = useCallback(async (plan: SubPlan): Promise<boolean> => {
     try {
       ensureRC();
       const offerings = await Purchases.getOfferings();
@@ -169,10 +170,13 @@ export function useSubscription() {
       }
       return false;
     }
-  };
+  }, [load]);
 
   // ── restorePurchases ──────────────────────────────────────────────────────
-  const restorePurchases = async (): Promise<void> => {
+  const restoringRef = useRef(false);
+  const restorePurchases = useCallback(async (): Promise<void> => {
+    if (restoringRef.current) return;
+    restoringRef.current = true;
     try {
       ensureRC();
       const info = await Purchases.restorePurchases();
@@ -181,13 +185,15 @@ export function useSubscription() {
       Alert.alert(
         active ? "Subscription restored!" : "No active subscription found",
         active
-          ? `Your Pro plan has been restored.`
+          ? "Your Pro plan has been restored."
           : "No active subscription found for this Apple ID.",
       );
     } catch (e: any) {
       Alert.alert("Restore failed", e.message);
+    } finally {
+      restoringRef.current = false;
     }
-  };
+  }, [load]);
 
   return {
     subscription,

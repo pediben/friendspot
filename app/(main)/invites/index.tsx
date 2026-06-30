@@ -196,8 +196,9 @@ export default function InvitesScreen() {
 
   // Filtered events: if a day is selected show that day only, else show all upcoming
   const displayEvents = useMemo(() => {
+    const now = new Date();
     if (!selectedKey) {
-      return events.filter(e => new Date(e.event_date) >= today);
+      return events.filter(e => new Date(e.event_date) >= now);
     }
     return events.filter(e => {
       const d = new Date(e.event_date);
@@ -216,7 +217,7 @@ export default function InvitesScreen() {
     setSelectedKey(null);
   };
 
-  const onSelectDay = (key: string) => {
+  const onSelectDay = (key: string, _date?: Date) => {
     setSelectedKey(prev => prev === key ? null : key);
   };
 

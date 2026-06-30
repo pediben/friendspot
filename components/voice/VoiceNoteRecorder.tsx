@@ -30,6 +30,7 @@ export function VoiceNoteRecorder({ onSend }: Props) {
   const [sending, setSending] = useState(false);
   const waveformRef = useRef<number[]>([]);
   const timerRef = useRef<NodeJS.Timeout>();
+  const durationMsRef = useRef(0); // ref so stopRecording always reads current value
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -71,6 +72,7 @@ export function VoiceNoteRecorder({ onSend }: Props) {
       const status = await rec.getStatusAsync();
       if (status.isRecording) {
         const ms = status.durationMillis ?? 0;
+        durationMsRef.current = ms;
         setDurationMs(ms);
         // Simulate amplitude (replace with actual metering if available)
         waveformRef.current.push(Math.random() * 0.8 + 0.1);
@@ -92,8 +94,9 @@ export function VoiceNoteRecorder({ onSend }: Props) {
     if (!active) return;
     setRecording(null);
 
-    const status = await active.getStatusAsync();
-    const duration = status.durationMillis ?? 0;
+    // Use ref — avoids iOS getStatusAsync() returning 0 on a live recording
+    const duration = durationMsRef.current;
+    durationMsRef.current = 0;
 
     await active.stopAndUnloadAsync();
     const uri = active.getURI();
@@ -122,7 +125,7 @@ export function VoiceNoteRecorder({ onSend }: Props) {
         <View style={styles.status}>
           <View style={styles.dot} />
           <Text style={styles.duration}>{formatDuration(durationMs)}</Text>
-          <Text style={styles.hint}>Release to send · Slide up to cancel</Text>
+          <Text style={styles.hint}>Release to send</Text>
         </View>
       )}
 

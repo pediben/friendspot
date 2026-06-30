@@ -22,6 +22,9 @@ export function useConversations() {
   const { session } = useAuthStore();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  // Unique channel name per hook instance — prevents "cannot add callbacks after subscribe()"
+  // when the hook is mounted in multiple places simultaneously.
+  const [channelName] = useState(() => `dm-convos-${Math.random().toString(36).slice(2)}`);
 
   const load = useCallback(async () => {
     if (!session?.user.id) return;
@@ -85,7 +88,7 @@ export function useConversations() {
     // Realtime: refresh on any new DM
     // .channel() must be on the root supabase client, NOT on .schema()
     const sub = supabase
-      .channel("dm-convos")
+      .channel(channelName)
       .on(
         "postgres_changes",
         { event: "*", schema: "friendspot", table: "direct_messages" },
@@ -94,7 +97,8 @@ export function useConversations() {
       .subscribe();
 
     return () => { supabase.removeChannel(sub); };
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load, channelName]);
 
   return { conversations, loading, refresh: load };
 }

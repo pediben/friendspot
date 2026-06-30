@@ -23,7 +23,7 @@ export function useAllEvents() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (!me) return;
+    if (!me) { setLoading(false); return; }
     setLoading(true);
     try {
       // Step 1: get all circles the user belongs to

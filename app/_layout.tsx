@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useUserKeys } from "@/hooks/useUserKeys";
+import { clearCircleKeyCache } from "@/lib/keyExchange";
 import { LogoMark } from "@/components/ui/LogoMark";
 
 SplashScreen.preventAutoHideAsync();
@@ -84,7 +85,10 @@ export default function RootLayout() {
       });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => setSession(session)
+      (event, session) => {
+        if (event === "SIGNED_OUT") clearCircleKeyCache();
+        setSession(session);
+      }
     );
 
     // React Native doesn't use browser timers, so autoRefreshToken needs

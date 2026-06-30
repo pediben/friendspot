@@ -28,7 +28,17 @@ const SAGE   = Colors.sage;
 const RED    = Colors.red;
 
 function parseDateTime(dateStr: string, timeStr: string): Date | null {
-  const d = new Date(`${dateStr} ${timeStr}`);
+  const dateParts = dateStr.split("/").map(Number);
+  if (dateParts.length !== 3 || dateParts.some(isNaN)) return null;
+  const [month, day, year] = dateParts;
+  const timeParts = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!timeParts) return null;
+  let hour = parseInt(timeParts[1]);
+  const minute = parseInt(timeParts[2]);
+  const ampm = timeParts[3].toUpperCase();
+  if (ampm === "PM" && hour < 12) hour += 12;
+  if (ampm === "AM" && hour === 12) hour = 0;
+  const d = new Date(year, month - 1, day, hour, minute);
   return isNaN(d.getTime()) ? null : d;
 }
 
@@ -40,7 +50,10 @@ export default function CreateInviteScreen() {
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const defaultDate = tomorrow.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" });
+  const mm = String(tomorrow.getMonth() + 1).padStart(2, "0");
+  const dd = String(tomorrow.getDate()).padStart(2, "0");
+  const yyyy = tomorrow.getFullYear();
+  const defaultDate = `${mm}/${dd}/${yyyy}`;
 
   const [title,       setTitle]       = useState("");
   const [description, setDescription] = useState("");
@@ -184,7 +197,7 @@ export default function CreateInviteScreen() {
             ? <ActivityIndicator color="#fff" />
             : <>
                 <Ionicons name="send-outline" size={18} color="#fff" />
-                <Text style={styles.createBtnText}>Create &amp; Compose Invite</Text>
+                <Text style={styles.createBtnText}>Create & Compose Invite</Text>
               </>
           }
         </TouchableOpacity>

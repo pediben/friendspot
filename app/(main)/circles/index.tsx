@@ -25,6 +25,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Ionicons } from "@expo/vector-icons";
 import { LogoMark } from "@/components/ui/LogoMark";
 import { supabase } from "@/lib/supabase";
+import { useSubscription, FREE_SPOT_LIMIT } from "@/hooks/useSubscription";
 
 // ─── Design tokens ──────────────────────────────────────────────
 const BG        = "#0C0D0B";
@@ -81,9 +82,8 @@ export default function SpotsHomeScreen() {
   const { circles, loading, createCircle } = useCircles();
   const [showCreate, setShowCreate] = useState(false);
 
-  // Pro gate — import inline to avoid circular deps
-  const { isPro } = require("@/hooks/useSubscription").useSubscription();
-  const FREE_SPOT_LIMIT = require("@/hooks/useSubscription").FREE_SPOT_LIMIT;
+  // Pro gate
+  const { isPro } = useSubscription();
 
   const openCreate = () => {
     if (!isPro && circles.length >= FREE_SPOT_LIMIT) {
