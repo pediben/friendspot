@@ -30,9 +30,10 @@ export default function MessagesScreen() {
 
   const renderItem = ({ item }: { item: Conversation }) => {
     const { otherUser, lastMessage, unreadCount } = item;
-    const isMine = lastMessage.sender_id !== otherUser.id;
-    const preview =
-      lastMessage.kind === "text"
+    const isMine = lastMessage ? lastMessage.sender_id !== otherUser.id : false;
+    const preview = !lastMessage
+      ? "No messages yet"
+      : lastMessage.kind === "text"
         ? (isMine ? `You: ${lastMessage.body ?? ""}` : lastMessage.body ?? "")
         : lastMessage.kind === "voice"
         ? (isMine ? "You sent a voice message" : "Voice message")
@@ -60,7 +61,7 @@ export default function MessagesScreen() {
               {otherUser.display_name}
             </Text>
             <Text style={styles.rowTime}>
-              {timeAgo(lastMessage.created_at)}
+              {lastMessage ? timeAgo(lastMessage.created_at) : ""}
             </Text>
           </View>
           <View style={styles.rowBottom}>

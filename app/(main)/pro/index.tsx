@@ -8,7 +8,7 @@
 import { useState } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, Platform, Linking,
+  ActivityIndicator, Platform, Linking, Alert,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -73,7 +73,11 @@ export default function ProScreen() {
     setLoading(true);
     const ok = await subscribe(plan);
     setLoading(false);
-    if (ok) router.back();
+    if (ok) {
+      router.back();
+    } else {
+      Alert.alert("Purchase failed", "Couldn't complete the purchase. Please try again.");
+    }
   };
 
   if (isPro) {

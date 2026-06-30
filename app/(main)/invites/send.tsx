@@ -57,6 +57,7 @@ function buildInviteText(params: {
   location?: string | null;
   circle: string;
   note: string;
+  eventId?: string;
 }) {
   const lines: string[] = [
     `🎉 You're invited to ${params.title}!`,
@@ -71,7 +72,7 @@ function buildInviteText(params: {
   }
   lines.push(``);
   lines.push(`Open Friendspot to RSVP 👇`);
-  lines.push(`friendspot://`);
+  lines.push(`https://friendspot.online/events/${params.eventId}`);
   return lines.join("\n");
 }
 
@@ -209,6 +210,7 @@ export default function SendInviteScreen() {
       location: event.location,
       circle:   (event as any).circle_name ?? "your Spot",
       note,
+      eventId,
     });
     try {
       await Share.share({ message: text });

@@ -37,15 +37,23 @@ export default function ProfileSetupScreen() {
 
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      Alert.alert("Session expired", "Please sign in again.");
+      router.replace("/(auth)/phone");
+      return;
+    }
 
     let avatarUrl: string | null = null;
 
     if (avatarUri) {
-      const blob = await (await fetch(avatarUri)).blob();
-      const path = await uploadFile("avatars", user.id, `${Date.now()}.jpg`, blob, "image/jpeg");
-      if (path) {
-        avatarUrl = path;
+      try {
+        const blob = await (await fetch(avatarUri)).blob();
+        const path = await uploadFile("avatars", user.id, `${Date.now()}.jpg`, blob, "image/jpeg");
+        if (path) avatarUrl = path;
+        else Alert.alert("Photo not saved", "Your profile was saved but the photo couldn't upload. You can add it later.");
+      } catch {
+        // Non-fatal — continue without photo
       }
     }
 
@@ -64,7 +72,7 @@ export default function ProfileSetupScreen() {
     await supabase.auth.updateUser({ data: { display_name: name.trim() } });
 
     setLoading(false);
-    router.replace("/(auth)/contacts");
+    router.replace("/(main)/circles");
   };
 
   return (

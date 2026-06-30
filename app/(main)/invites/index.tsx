@@ -281,13 +281,28 @@ export default function InvitesScreen() {
         ListEmptyComponent={
           loading ? (
             <ActivityIndicator color={SAGE} style={{ marginTop: 40 }} />
+          ) : selectedKey ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>📅</Text>
+              <Text style={styles.emptyTitle}>Nothing on this day</Text>
+              <TouchableOpacity
+                onPress={() => router.push("/(main)/invites/create" as any)}
+                style={styles.emptyBtn}
+              >
+                <Text style={styles.emptyBtnText}>+ Create an event</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>🎉</Text>
-              <Text style={styles.emptyTitle}>No events here</Text>
-              <Text style={styles.emptyBody}>
-                {selectedKey ? "Nothing planned on this day" : "Create an event in one of your Spots"}
-              </Text>
+              <Text style={styles.emptyTitle}>No upcoming events</Text>
+              <Text style={styles.emptyBody}>Create an event and invite your Spots</Text>
+              <TouchableOpacity
+                onPress={() => router.push("/(main)/invites/create" as any)}
+                style={styles.emptyBtn}
+              >
+                <Text style={styles.emptyBtnText}>+ New Event</Text>
+              </TouchableOpacity>
             </View>
           )
         }
@@ -324,5 +339,7 @@ const styles = StyleSheet.create({
   empty:         { alignItems: "center", marginTop: 60 },
   emptyIcon:     { fontSize: 42, marginBottom: 10 },
   emptyTitle:    { fontSize: 17, fontWeight: "700", color: TEXT, marginBottom: 4 },
-  emptyBody:     { fontSize: 14, color: MUTED, textAlign: "center", paddingHorizontal: 32 },
+  emptyBody:     { fontSize: 14, color: MUTED, textAlign: "center", paddingHorizontal: 32, marginBottom: 16 },
+  emptyBtn:      { marginTop: 16, backgroundColor: "rgba(143,168,118,0.15)", borderWidth: 1, borderColor: SAGE, borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10 },
+  emptyBtnText:  { fontSize: 14, fontWeight: "700", color: SAGE },
 });

@@ -112,7 +112,7 @@ export function useEventDetail(eventId: string) {
       const [evRes, rsvpRes] = await Promise.all([
         (supabase as any)
           .from("spot_events")
-          .select("*")
+          .select("*, circles(name, icon)")
           .eq("id", eventId)
           .single(),
         (supabase as any)
@@ -125,7 +125,12 @@ export function useEventDetail(eventId: string) {
 
       const myRsvp = rsvpRes.data?.find((r: any) => r.user_id === me);
 
-      setEvent({ ...evRes.data, my_rsvp: myRsvp?.status ?? null });
+      setEvent({
+        ...evRes.data,
+        my_rsvp: myRsvp?.status ?? null,
+        circle_name: evRes.data.circles?.name ?? null,
+        circle_icon: evRes.data.circles?.icon ?? null,
+      });
 
       setGuests(
         (rsvpRes.data ?? []).map((r: any) => ({

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -16,7 +16,23 @@ export default function VerifyScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const inputRef = useRef<TextInput>(null);
+
+  // Guard: if no phone param, go back
+  useEffect(() => {
+    if (!phone) {
+      Alert.alert("Something went wrong", "Please enter your phone number again.");
+      router.replace("/(auth)/phone");
+    }
+  }, [phone]);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
 
   const verify = async () => {
     if (code.length !== 6) return;
@@ -41,8 +57,14 @@ export default function VerifyScreen() {
   };
 
   const resend = async () => {
-    await supabase.auth.signInWithOtp({ phone });
-    Alert.alert("Sent", "A new code is on its way.");
+    if (resendCooldown > 0 || !phone) return;
+    const { error } = await supabase.auth.signInWithOtp({ phone });
+    if (error) {
+      Alert.alert("Couldn't resend", error.message);
+    } else {
+      setResendCooldown(30);
+      Alert.alert("Sent", "A new code is on its way.");
+    }
   };
 
   return (
@@ -91,8 +113,10 @@ export default function VerifyScreen() {
         )}
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={resend} style={{ marginTop: 24 }}>
-        <Text style={styles.resend}>Didn't get it? Resend</Text>
+      <TouchableOpacity onPress={resend} disabled={resendCooldown > 0} style={{ marginTop: 24 }}>
+        <Text style={[styles.resend, resendCooldown > 0 && { opacity: 0.4 }]}>
+          {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Didn't get it? Resend"}
+        </Text>
       </TouchableOpacity>
     </View>
   );
