@@ -120,9 +120,12 @@ export default function CreateInviteScreen() {
       >
         {/* Spot picker */}
         <Text style={styles.label}>Which Spot? *</Text>
+        <Text style={styles.labelSub}>Pick the group of friends you're inviting</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.spotScroll}>
           {circles.map(c => {
             const selected = c.id === spotId;
+            const memberCount = (c as any).member_count ?? 0;
+            const memberLabel = memberCount <= 1 ? "Just you" : `${memberCount} members`;
             return (
               <TouchableOpacity
                 key={c.id}
@@ -131,20 +134,33 @@ export default function CreateInviteScreen() {
                 activeOpacity={0.75}
               >
                 <Text style={styles.spotIcon}>{c.icon?.startsWith("http") ? "📍" : (c.icon ?? "📍")}</Text>
-                <Text style={[styles.spotName, selected && { color: TEXT }]}>{c.name}</Text>
+                <Text style={[styles.spotName, selected && { color: TEXT }]} numberOfLines={1}>{c.name}</Text>
+                <Text style={[styles.spotMeta, selected && { color: SAGE }]}>{memberLabel}</Text>
               </TouchableOpacity>
             );
           })}
-          {circles.length === 0 && (
-            <Text style={{ color: MUTED, fontSize: 14 }}>No Spots yet — create one first</Text>
-          )}
+          {/* Create new Spot */}
+          <TouchableOpacity
+            style={styles.newSpotChip}
+            onPress={() => router.push("/(main)/circles" as any)}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="add-circle-outline" size={22} color={SAGE} />
+            <Text style={styles.newSpotText}>New Spot</Text>
+            <Text style={styles.spotMeta}>Create group</Text>
+          </TouchableOpacity>
         </ScrollView>
+        {circles.length === 0 && (
+          <Text style={{ color: MUTED, fontSize: 13, marginBottom: 8 }}>
+            No Spots yet — tap "New Spot" to create your first group
+          </Text>
+        )}
 
         {/* Title */}
         <Text style={styles.label}>Event name *</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. Summer BBQ 🍖"
+          placeholder="Type your event name…"
           placeholderTextColor={MUTED}
           value={title}
           onChangeText={setTitle}
@@ -220,11 +236,15 @@ const styles = StyleSheet.create({
   input:          { backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: TEXT },
   multiline:      { minHeight: 100, textAlignVertical: "top" },
   // Spot picker
+  labelSub:       { fontSize: 12, color: FAINT, marginTop: -6, marginBottom: 8 },
   spotScroll:     { marginBottom: 4 },
-  spotChip:       { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8 },
+  spotChip:       { flexDirection: "column", alignItems: "center", gap: 3, backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 12, marginRight: 8, minWidth: 80, maxWidth: 100 },
   spotChipSelected: { borderColor: SAGE, backgroundColor: "rgba(143,168,118,0.15)" },
-  spotIcon:       { fontSize: 16 },
-  spotName:       { fontSize: 14, fontWeight: "600", color: MUTED },
+  spotIcon:       { fontSize: 22, marginBottom: 2 },
+  spotName:       { fontSize: 13, fontWeight: "700", color: MUTED, textAlign: "center" },
+  spotMeta:       { fontSize: 11, color: FAINT, textAlign: "center" },
+  newSpotChip:    { flexDirection: "column", alignItems: "center", gap: 3, borderWidth: 1.5, borderColor: SAGE, borderStyle: "dashed", borderRadius: 16, paddingHorizontal: 12, paddingVertical: 12, marginRight: 8, minWidth: 80, justifyContent: "center" },
+  newSpotText:    { fontSize: 13, fontWeight: "700", color: SAGE, textAlign: "center" },
   // Button
   createBtn:      { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: SAGE, borderRadius: 14, paddingVertical: 15, marginTop: 24 },
   createBtnText:  { fontSize: 16, fontWeight: "700", color: "#fff" },
