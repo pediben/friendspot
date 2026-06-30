@@ -95,7 +95,7 @@ export default function ProfileScreen() {
         />
         <View style={{ marginLeft: 16, flex: 1 }}>
           <Text style={styles.name}>{profile.display_name}</Text>
-          <Text style={styles.phone}>{profile.phone}</Text>
+          {profile.phone ? <Text style={styles.phone}>{profile.phone}</Text> : null}
           {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
         </View>
         <TouchableOpacity
@@ -110,9 +110,10 @@ export default function ProfileScreen() {
         <MenuItem icon="create-outline"           label="Edit profile"    onPress={() => router.push("/(main)/profile/edit" as any)} />
         <MenuItem icon="swap-horizontal-outline"  label="Payment links"   onPress={() => router.push("/(main)/profile/payments" as any)} />
         <MenuItem icon="shield-checkmark-outline" label="Two-factor auth" onPress={() => router.push("/(main)/profile/two-factor" as any)} />
-        <MenuItem icon="notifications-outline"    label="Notifications"   onPress={() => {}} />
-        <MenuItem icon="lock-closed-outline"      label="Privacy"         onPress={() => {}} />
-        <MenuItem icon="help-circle-outline"      label="Help"            onPress={() => {}} />
+        <MenuItem icon="star-outline"               label="Friendspot Pro"  onPress={() => router.push("/(main)/pro" as any)} pro />
+        <MenuItem icon="notifications-outline"    label="Notifications"   onPress={() => Alert.alert("Coming soon", "Notification settings are coming in a future update.")} />
+        <MenuItem icon="lock-closed-outline"      label="Privacy"         onPress={() => Alert.alert("Coming soon", "Privacy settings are coming in a future update.")} />
+        <MenuItem icon="help-circle-outline"      label="Help"            onPress={() => Alert.alert("Coming soon", "In-app help is coming soon. For now, email us at hello@friendspot.online.")} />
         <MenuItem icon="information-circle-outline" label="About Friendspot" onPress={() => router.push("/(main)/about" as any)} />
         <MenuItem icon="log-out-outline" label="Sign out" onPress={signOut} danger />
       </View>
@@ -125,20 +126,28 @@ function MenuItem({
   label,
   onPress,
   danger,
+  pro,
 }: {
   icon: string;
   label: string;
   onPress: () => void;
   danger?: boolean;
+  pro?: boolean;
 }) {
+  const SAGE = "#8FA876";
   return (
     <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
       <Ionicons
         name={icon as any}
         size={20}
-        color={danger ? Colors.red : Colors.textMuted}
+        color={danger ? Colors.red : pro ? SAGE : Colors.textMuted}
       />
-      <Text style={[styles.menuLabel, danger && { color: Colors.red }]}>{label}</Text>
+      <Text style={[styles.menuLabel, danger && { color: Colors.red }, pro && { color: SAGE, fontWeight: "700" }]}>{label}</Text>
+      {pro && (
+        <View style={{ backgroundColor: "rgba(143,168,118,0.15)", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginRight: 4 }}>
+          <Text style={{ fontSize: 10, fontWeight: "700", color: SAGE }}>UPGRADE</Text>
+        </View>
+      )}
       <Ionicons name="chevron-forward" size={16} color={Colors.textFaint} />
     </TouchableOpacity>
   );

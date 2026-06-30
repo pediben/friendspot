@@ -80,6 +80,18 @@ async function uploadCoverPhoto(localUri: string, circleId: string): Promise<str
 export default function SpotsHomeScreen() {
   const { circles, loading, createCircle } = useCircles();
   const [showCreate, setShowCreate] = useState(false);
+
+  // Pro gate — import inline to avoid circular deps
+  const { isPro } = require("@/hooks/useSubscription").useSubscription();
+  const FREE_SPOT_LIMIT = require("@/hooks/useSubscription").FREE_SPOT_LIMIT;
+
+  const openCreate = () => {
+    if (!isPro && circles.length >= FREE_SPOT_LIMIT) {
+      router.push("/(main)/pro" as any);
+      return;
+    }
+    setShowCreate(true);
+  };
   const [newName, setNewName]       = useState("");
   const [newDesc, setNewDesc]       = useState("");
   const [coverUri, setCoverUri]     = useState<string | null>(null);
@@ -214,7 +226,7 @@ export default function SpotsHomeScreen() {
           <TouchableOpacity style={styles.glassBtn} onPress={() => router.push("/(main)/profile" as any)}>
             <Ionicons name="person-circle-outline" size={20} color="rgba(244,245,240,0.7)" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.sageBtn} onPress={() => setShowCreate(true)}>
+          <TouchableOpacity style={styles.sageBtn} onPress={openCreate}>
             <LinearGradient colors={["#9FBD84", "#7A9B63"]} style={styles.sageBtnGradient}>
               <Ionicons name="add" size={20} color={BG} />
             </LinearGradient>
@@ -288,7 +300,7 @@ export default function SpotsHomeScreen() {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.emptyBtn} onPress={() => setShowCreate(true)} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.emptyBtn} onPress={openCreate} activeOpacity={0.8}>
             <LinearGradient colors={["#9FBD84", "#7A9B63"]} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.emptyBtnGradient}>
               <Ionicons name="add" size={18} color={BG} style={{ marginRight: 6 }} />
               <Text style={styles.emptyBtnText}>Create your first Friendspot</Text>

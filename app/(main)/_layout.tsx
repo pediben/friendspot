@@ -101,6 +101,9 @@ export default function MainLayout() {
       {/* ── Profile: accessible via header icon on Spots tab ── */}
       <Tabs.Screen name="profile" options={{ tabBarButton: () => null }} />
 
+      {/* ── Pro paywall: presented as modal ── */}
+      <Tabs.Screen name="pro" options={{ tabBarButton: () => null }} />
+
       {/* ── Hidden routes (no tab bar entry) ── */}
       <Tabs.Screen name="join"    options={{ tabBarButton: () => null }} />
       <Tabs.Screen name="stories" options={{ tabBarButton: () => null }} />
