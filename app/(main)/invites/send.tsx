@@ -97,7 +97,7 @@ export default function SendInviteScreen() {
       title:    event.title,
       date:     formatFull(event.event_date),
       location: event.location,
-      circle:   "(your Spot)",
+      circle:   (event as any).circle_name ?? "your Spot",
       note,
     });
     try {
@@ -148,10 +148,22 @@ export default function SendInviteScreen() {
     }
   };
 
-  if (loading || !event) {
+  if (loading) {
     return (
       <View style={[styles.root, { paddingTop: insets.top, justifyContent: "center", alignItems: "center" }]}>
         <ActivityIndicator color={SAGE} />
+      </View>
+    );
+  }
+
+  if (!event) {
+    return (
+      <View style={[styles.root, { paddingTop: insets.top, justifyContent: "center", alignItems: "center", gap: 16 }]}>
+        <Ionicons name="alert-circle-outline" size={48} color={MUTED} />
+        <Text style={{ color: MUTED, fontSize: 16 }}>Event not found</Text>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
+          <Text style={{ color: SAGE, fontSize: 15, fontWeight: "600" }}>Go back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -236,7 +248,7 @@ export default function SendInviteScreen() {
               title:    event.title,
               date:     formatFull(event.event_date),
               location: event.location,
-              circle:   "your Spot",
+              circle:   (event as any).circle_name ?? "your Spot",
               note,
             })}
           </Text>

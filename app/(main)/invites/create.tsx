@@ -66,10 +66,15 @@ export default function CreateInviteScreen() {
   const dateError = dateStr.length > 0 && !parseDateTime(dateStr, timeStr);
 
   const handleCreate = async () => {
+    if (saving) return; // guard against double-tap
     if (!title.trim()) { Alert.alert("Title required"); return; }
     if (!spotId)        { Alert.alert("Pick a Spot"); return; }
     const eventDate = parseDateTime(dateStr, timeStr);
     if (!eventDate) { Alert.alert("Invalid date/time", "Use MM/DD/YYYY and e.g. 7:00 PM"); return; }
+    if (eventDate < new Date()) {
+      Alert.alert("Date is in the past", "Please choose a future date for your event.");
+      return;
+    }
 
     setSaving(true);
     try {

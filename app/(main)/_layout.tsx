@@ -3,7 +3,7 @@
  * Messages is hidden from the tab bar — accessible via the Spots header icon.
  */
 import { useEffect } from "react";
-import { View } from "react-native";
+import { View, ActivityIndicator } from "react-native";
 import { Tabs, router } from "expo-router";
 import { useAuthStore } from "@/hooks/useAuth";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,11 +14,22 @@ const INACTIVE = "rgba(255,255,255,0.32)";
 const TAB_BG   = "#0C0D0B";
 
 export default function MainLayout() {
-  const { session } = useAuthStore();
+  const { session, loading } = useAuthStore();
 
   useEffect(() => {
-    if (!session) router.replace("/(auth)");
-  }, [session]);
+    if (!loading && !session) router.replace("/(auth)");
+  }, [session, loading]);
+
+  // Block rendering until auth state is confirmed — prevents tab screens
+  // from mounting (and firing Supabase queries) before session is known
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: TAB_BG, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator color={ACTIVE} />
+      </View>
+    );
+  }
+  if (!session) return null;
 
   return (
     <Tabs

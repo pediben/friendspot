@@ -8,7 +8,7 @@
 import { useState } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, Platform,
+  ActivityIndicator, Platform, Linking,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -188,9 +188,13 @@ export default function ProScreen() {
         </TouchableOpacity>
 
         <View style={styles.termsRow}>
-          <Text style={styles.termsLink}>Privacy policy</Text>
+          <TouchableOpacity onPress={() => Linking.openURL("https://friendspot.online/privacy")} hitSlop={8}>
+            <Text style={styles.termsLink}>Privacy policy</Text>
+          </TouchableOpacity>
           <Text style={styles.termsDot}>·</Text>
-          <Text style={styles.termsLink}>Terms of use</Text>
+          <TouchableOpacity onPress={() => Linking.openURL("https://friendspot.online/terms")} hitSlop={8}>
+            <Text style={styles.termsLink}>Terms of use</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>

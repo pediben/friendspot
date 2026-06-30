@@ -51,7 +51,7 @@ export const IAP_PRODUCTS = {
   annual:  "com.friendspot.app.pro.annual",
 } as const;
 
-const RC_API_KEY_IOS = "appl_aDLXaTAGerefCULZDjULOjiYrhH";
+const RC_API_KEY_IOS = process.env.EXPO_PUBLIC_RC_IOS_API_KEY ?? "appl_aDLXaTAGerefCULZDjULOjiYrhH";
 
 // ── Configure RevenueCat once at module load ──────────────────────────────────
 let _rcConfigured = false;

@@ -82,10 +82,11 @@ export default function SpotsHomeScreen() {
   const { circles, loading, createCircle } = useCircles();
   const [showCreate, setShowCreate] = useState(false);
 
-  // Pro gate
-  const { isPro } = useSubscription();
+  // Pro gate — wait for subscription loading before enforcing limit
+  const { isPro, loading: subLoading } = useSubscription();
 
   const openCreate = () => {
+    if (subLoading) return; // don't gate while subscription status is loading
     if (!isPro && circles.length >= FREE_SPOT_LIMIT) {
       router.push("/(main)/pro" as any);
       return;
