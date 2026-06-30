@@ -25,6 +25,10 @@ export default {
           "Friendspot accesses your photos to share moments with your circles.",
         NSCameraUsageDescription:
           "Friendspot uses your camera to capture moments.",
+        NSCalendarsUsageDescription:
+          "Friendspot adds events to your calendar so you never miss a Spot hangout.",
+        NSCalendarsFullAccessUsageDescription:
+          "Friendspot adds events to your calendar so you never miss a Spot hangout.",
       },
     },
     android: {
@@ -49,6 +53,13 @@ export default {
         {
           contactsPermission:
             "Allow Friendspot to access your contacts to find friends already on the app.",
+        },
+      ],
+      [
+        "expo-calendar",
+        {
+          calendarPermission:
+            "Allow Friendspot to add events to your calendar.",
         },
       ],
     ],
