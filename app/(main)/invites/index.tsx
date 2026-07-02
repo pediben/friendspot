@@ -5,7 +5,7 @@
 import { useState, useMemo } from "react";
 import {
   View, Text, TouchableOpacity, FlatList,
-  StyleSheet, ActivityIndicator,
+  StyleSheet, ActivityIndicator, Image,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -307,9 +307,9 @@ export default function InvitesScreen() {
               {/* Demo preview */}
               <Text style={styles.demoLabel}>PREVIEW</Text>
               {[
-                { emoji: "🎂", color: "#F472B6" },
-                { emoji: "🍽️", color: "#F59E0B" },
-                { emoji: "✈️", color: "#38BDF8" },
+                { emoji: "🎂", color: "#F472B6", avatars: ["https://i.pravatar.cc/60?img=47","https://i.pravatar.cc/60?img=32","https://i.pravatar.cc/60?img=11"] },
+                { emoji: "🍽️", color: "#F59E0B", avatars: ["https://i.pravatar.cc/60?img=5","https://i.pravatar.cc/60?img=9"] },
+                { emoji: "✈️", color: "#38BDF8", avatars: ["https://i.pravatar.cc/60?img=20","https://i.pravatar.cc/60?img=3","https://i.pravatar.cc/60?img=15","https://i.pravatar.cc/60?img=44"] },
               ].map((d, i) => (
                 <View key={i} style={[styles.demoCard, { borderColor: `${d.color}30` }]}>
                   <View style={styles.demoCardRow}>
@@ -322,7 +322,15 @@ export default function InvitesScreen() {
                       <Text style={[styles.demoInviteText, { color: d.color }]}>Invite</Text>
                     </View>
                   </View>
-                  <View style={[styles.demoLine, { width: "50%", height: 10, marginTop: 10, opacity: 0.35 }]} />
+                  {/* Attendee avatar stack */}
+                  <View style={styles.demoAvatarStack}>
+                    {d.avatars.map((uri, j) => (
+                      <Image key={j} source={{ uri }} style={[styles.demoAttendeeAvatar, { left: j * 18, borderColor: `${d.color}60` }]} />
+                    ))}
+                    <Text style={[styles.demoGoingText, { marginLeft: d.avatars.length * 18 + 8, color: d.color }]}>
+                      {d.avatars.length} going
+                    </Text>
+                  </View>
                 </View>
               ))}
             </View>
@@ -370,6 +378,9 @@ const styles = StyleSheet.create({
   demoCardRow:   { flexDirection: "row", alignItems: "center", gap: 10 },
   demoCardEmoji: { fontSize: 22 },
   demoLine:      { height: 12, borderRadius: 6, backgroundColor: "rgba(255,255,255,0.12)" },
-  demoInviteChip:{ borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  demoInviteText:{ fontSize: 12, fontWeight: "700" },
+  demoInviteChip:    { borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  demoInviteText:    { fontSize: 12, fontWeight: "700" },
+  demoAvatarStack:   { flexDirection: "row", alignItems: "center", marginTop: 12, height: 28 },
+  demoAttendeeAvatar:{ position: "absolute", width: 26, height: 26, borderRadius: 13, borderWidth: 2 },
+  demoGoingText:     { fontSize: 12, fontWeight: "600", position: "absolute" },
 });
