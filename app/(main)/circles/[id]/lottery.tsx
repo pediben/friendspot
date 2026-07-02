@@ -50,8 +50,12 @@ export default function RoundsScreen() {
       .eq("circle_id", circleId)
       .order("draw_date", { ascending: false });
 
-    if (error) console.error("[Rounds]", error.message);
-    else setRounds((data ?? []) as any);
+    if (error) {
+      console.error("[Rounds]", error.message);
+      Alert.alert("Couldn't load rounds", error.message);
+    } else {
+      setRounds((data ?? []) as any);
+    }
     setLoading(false);
     setRefreshing(false);
   }, [circleId]);

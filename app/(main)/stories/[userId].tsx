@@ -98,15 +98,18 @@ export default function StoryViewerScreen() {
     return () => anim.current?.stop();
   }, [index, loading]);
 
+  const advanceRef = useRef(advance);
+  useEffect(() => { advanceRef.current = advance; });
+
   useEffect(() => {
     if (paused) {
       anim.current?.stop();
     } else if (!loading) {
       anim.current?.start(({ finished }) => {
-        if (finished) advance();
+        if (finished) advanceRef.current();
       });
     }
-  }, [paused]);
+  }, [paused, loading]);
 
   const advance = () => {
     if (index < stories.length - 1) {

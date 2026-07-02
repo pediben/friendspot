@@ -49,8 +49,12 @@ export default function ExpensesScreen() {
       .eq("circle_id", circleId)
       .order("created_at", { ascending: false });
 
-    if (error) console.error("[Expenses]", error.message);
-    else setExpenses((data ?? []) as any);
+    if (error) {
+      console.error("[Expenses]", error.message);
+      Alert.alert("Couldn't load expenses", error.message);
+    } else {
+      setExpenses((data ?? []) as any);
+    }
     setLoading(false);
     setRefreshing(false);
   }, [circleId]);
