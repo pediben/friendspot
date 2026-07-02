@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform,
@@ -31,7 +31,7 @@ export default function CreateExpenseScreen() {
   const [loading, setLoading] = useState(false);
 
   // Load members on mount
-  useState(() => {
+  useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from("circle_members")
@@ -44,7 +44,7 @@ export default function CreateExpenseScreen() {
       setSplitWith(others.map(m => m.user_id));
       setMembersLoaded(true);
     })();
-  });
+  }, [circleId, session?.user.id]);
 
   const toggleMember = (uid: string) => {
     setSplitWith(prev =>

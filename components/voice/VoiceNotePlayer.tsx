@@ -3,7 +3,7 @@
  * Renders a voice note bubble with waveform visualization and play/pause control.
  * Downloads and decrypts the audio on first play.
  */
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState, useMemo, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { Audio } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,6 +26,13 @@ export function VoiceNotePlayer({ note, isMine, circleKey }: Props) {
   const [progress, setProgress] = useState(0); // 0–1
 
   const playbackRef = useRef<Audio.Sound | null>(null);
+
+  // Unload audio on unmount to prevent native memory leak
+  useEffect(() => {
+    return () => {
+      playbackRef.current?.unloadAsync().catch(() => {});
+    };
+  }, []);
 
   const togglePlay = async () => {
     if (playing) {

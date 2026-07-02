@@ -14,6 +14,7 @@ import {
   Share,
 } from "react-native";
 import * as Contacts from "expo-contacts";
+import * as ExpoCrypto from "expo-crypto";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/hooks/useAuth";
@@ -36,63 +37,73 @@ export default function ContactsScreen() {
   }, []);
 
   const loadContacts = async () => {
-    const { status } = await Contacts.requestPermissionsAsync();
-    if (status !== "granted") {
-      setLoading(false);
-      return;
-    }
-
-    const { data } = await Contacts.getContactsAsync({
-      fields: [Contacts.Fields.PhoneNumbers],
-    });
-
-    // Extract all phone numbers, normalize to E.164 (+1XXXXXXXXXX for now)
-    const phones: string[] = [];
-    data.forEach((c) => {
-      c.phoneNumbers?.forEach((p) => {
-        const digits = p.number?.replace(/\D/g, "") ?? "";
-        if (digits.length >= 10) {
-          // Simplistic E.164: prepend +1 for 10-digit US numbers
-          // TODO: use libphonenumber for international
-          const e164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
-          phones.push(e164);
-        }
-      });
-    });
-
-    // Save to contact_imports so we can notify this user when their contacts join
-    if (session?.user.id && phones.length > 0) {
-      const uniquePhones = [...new Set(phones)];
-      const rows = uniquePhones.map((phone) => ({
-        owner_id:   session.user.id,
-        phone_hash: phone, // stored as E.164 string
-      }));
-      for (let i = 0; i < rows.length; i += 500) {
-        await supabase
-          .schema("friendspot")
-          .from("contact_imports")
-          .upsert(rows.slice(i, i + 500), { onConflict: "owner_id,phone_hash" });
+    try {
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status !== "granted") {
+        setLoading(false);
+        return;
       }
+
+      const { data } = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.PhoneNumbers],
+      });
+
+      // Extract all phone numbers, normalize to E.164
+      const phones: string[] = [];
+      data.forEach((c) => {
+        c.phoneNumbers?.forEach((p) => {
+          const digits = p.number?.replace(/\D/g, "") ?? "";
+          if (digits.length >= 10) {
+            // Only prepend +1 for bare 10-digit numbers; leave longer ones as-is
+            const e164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
+            phones.push(e164);
+          }
+        });
+      });
+
+      // Save to contact_imports (SHA-256 hashed for privacy)
+      if (session?.user.id && phones.length > 0) {
+        const uniquePhones = [...new Set(phones)];
+        const rows = await Promise.all(
+          uniquePhones.map(async (phone) => ({
+            owner_id:   session.user.id,
+            phone_hash: await ExpoCrypto.digestStringAsync(
+              ExpoCrypto.CryptoDigestAlgorithm.SHA256,
+              phone,
+            ),
+          }))
+        );
+        for (let i = 0; i < rows.length; i += 500) {
+          await supabase
+            .schema("friendspot")
+            .from("contact_imports")
+            .upsert(rows.slice(i, i + 500), { onConflict: "owner_id,phone_hash" });
+        }
+      }
+
+      // Query Supabase using the normalized E.164 numbers directly (no double-normalizing)
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("*")
+        .in("phone", phones);
+
+      const profileMap = new Map((profiles ?? []).map((p) => [p.phone ?? "", p]));
+
+      const result: ContactMatch[] = data
+        .filter((c) => c.phoneNumbers?.length)
+        .map((c) => {
+          const digits = c.phoneNumbers![0].number?.replace(/\D/g, "") ?? "";
+          const e164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
+          return { contact: c, profile: profileMap.get(e164) ?? null };
+        })
+        .sort((a, b) => (b.profile ? 1 : 0) - (a.profile ? 1 : 0));
+
+      setMatches(result);
+    } catch (e) {
+      console.error("[ContactsScreen] loadContacts error", e);
+    } finally {
+      setLoading(false);
     }
-
-    // Batch query Supabase for matches
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("*")
-      .in("phone", phones.map((p) => `+1${p.slice(-10)}`));
-
-    const profileMap = new Map((profiles ?? []).map((p) => [p.phone?.slice(-10) ?? "", p]));
-
-    const result: ContactMatch[] = data
-      .filter((c) => c.phoneNumbers?.length)
-      .map((c) => {
-        const normalized = c.phoneNumbers![0].number?.replace(/\D/g, "").slice(-10) ?? "";
-        return { contact: c, profile: profileMap.get(normalized) ?? null };
-      })
-      .sort((a, b) => (b.profile ? 1 : 0) - (a.profile ? 1 : 0));
-
-    setMatches(result);
-    setLoading(false);
   };
 
   const invite = async (contact: Contacts.Contact) => {

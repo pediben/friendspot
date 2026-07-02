@@ -31,14 +31,16 @@ export function VoiceNoteRecorder({ onSend }: Props) {
   const waveformRef = useRef<number[]>([]);
   const timerRef = useRef<NodeJS.Timeout>();
   const durationMsRef = useRef(0); // ref so stopRecording always reads current value
+  const recordingRef = useRef<Audio.Recording | null>(null); // ref for unmount cleanup
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
+  // Unmount-only cleanup — stop any in-progress recording when the component is removed
   useEffect(() => {
     return () => {
-      recording?.stopAndUnloadAsync();
       clearInterval(timerRef.current);
+      recordingRef.current?.stopAndUnloadAsync().catch(() => {});
     };
-  }, [recording]);
+  }, []);
 
   const startRecording = async () => {
     try {
@@ -55,6 +57,7 @@ export function VoiceNoteRecorder({ onSend }: Props) {
     const { recording: rec } = await Audio.Recording.createAsync(
       Audio.RecordingOptionsPresets.HIGH_QUALITY
     );
+    recordingRef.current = rec;
     setRecording(rec);
     setDurationMs(0);
     waveformRef.current = [];
@@ -92,6 +95,7 @@ export function VoiceNoteRecorder({ onSend }: Props) {
 
     const active = rec ?? recording;
     if (!active) return;
+    recordingRef.current = null;
     setRecording(null);
 
     // Use ref — avoids iOS getStatusAsync() returning 0 on a live recording

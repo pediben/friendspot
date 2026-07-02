@@ -141,7 +141,7 @@ function ConnectedRoom({ onLeave, isEncrypted }: { onLeave: () => void; isEncryp
   const participants = useParticipants();
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
 
-  const toggleMic = () => localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
+  const toggleMic = () => localParticipant?.setMicrophoneEnabled(!isMicrophoneEnabled);
 
   return (
     <View style={styles.connectedContainer}>
@@ -270,7 +270,7 @@ export default function PrivateRoomScreen() {
       AudioSession.stopAudioSession();
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
     };
-  }, [metaLoaded, roomMode, passphrase]);
+  }, [metaLoaded, roomMode, passphrase, setup]);
 
   const leaveIntentionally = useCallback(() => {
     intentionalLeave.current = true;

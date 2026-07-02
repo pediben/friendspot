@@ -44,7 +44,6 @@ export default function DMThreadScreen() {
   useEffect(() => {
     if (!otherUserId) return;
     supabase
-      .schema("friendspot")
       .from("profiles")
       .select("*")
       .eq("id", otherUserId)

@@ -157,11 +157,13 @@ export function useThread(otherUserId: string) {
   }, [me, otherUserId]);
 
   useEffect(() => {
+    // Reset so markRead() fires again when switching to a different conversation
+    markedRef.current = false;
     load();
     markRead();
 
     const sub = supabase
-      .channel(`dm-thread-${otherUserId}`)
+      .channel(`dm-thread-${otherUserId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "friendspot", table: "direct_messages" },

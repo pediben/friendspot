@@ -12,6 +12,7 @@ export function useVoiceNotes(circleId: string) {
 
   const [notes, setNotes] = useState<CircleMessageWithSender[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
     const { data, error } = await supabase
@@ -24,10 +25,12 @@ export function useVoiceNotes(circleId: string) {
 
     if (error) {
       console.error("[useVoiceNotes]", error.message);
+      setFetchError(error.message);
       setLoading(false);
       return;
     }
 
+    setFetchError(null);
     setNotes((data ?? []) as unknown as CircleMessageWithSender[]);
     setLoading(false);
   }, [circleId]);
@@ -95,5 +98,5 @@ export function useVoiceNotes(circleId: string) {
     await fetch();
   };
 
-  return { notes, loading, sendVoiceNote, keyPending: keyError === "key_pending", circleKey };
+  return { notes, loading, fetchError, sendVoiceNote, keyPending: keyError === "key_pending", circleKey };
 }

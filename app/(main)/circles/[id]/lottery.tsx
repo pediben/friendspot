@@ -3,7 +3,7 @@
  * Every member contributes each round; one member receives the full pot per round.
  * After N rounds (= member count), everyone has received once.
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   View, Text, FlatList, TouchableOpacity,
   StyleSheet, ActivityIndicator, RefreshControl, Alert,
@@ -37,6 +37,21 @@ export default function RoundsScreen() {
   const [rounds, setRounds] = useState<Round[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Fetch user's role in this circle once on mount
+  useEffect(() => {
+    if (!circleId || !userId) return;
+    supabase
+      .from("circle_members")
+      .select("role")
+      .eq("circle_id", circleId)
+      .eq("user_id", userId)
+      .single()
+      .then(({ data }) => {
+        if (data?.role === "admin" || data?.role === "owner") setIsAdmin(true);
+      });
+  }, [circleId, userId]);
 
   const fetchRounds = useCallback(async () => {
     if (!circleId) return;
@@ -167,9 +182,11 @@ export default function RoundsScreen() {
             ) : (
               <Text style={styles.paidText}>✓ Contributed</Text>
             )}
-            <TouchableOpacity style={styles.selectBtn} onPress={() => selectRecipient(item)}>
-              <Text style={styles.selectBtnText}>Select recipient</Text>
-            </TouchableOpacity>
+            {isAdmin && (
+              <TouchableOpacity style={styles.selectBtn} onPress={() => selectRecipient(item)}>
+                <Text style={styles.selectBtnText}>Select recipient</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </View>

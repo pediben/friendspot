@@ -17,6 +17,8 @@ PODS:
     - ExpoModulesCore
   - ExpoAsset (10.0.10):
     - ExpoModulesCore
+  - ExpoCalendar (13.0.5):
+    - ExpoModulesCore
   - ExpoCamera (15.0.16):
     - ExpoModulesCore
     - ZXingObjC/OneD
@@ -141,6 +143,8 @@ PODS:
   - livekit-react-native-webrtc (144.1.0):
     - React-Core
     - WebRTC-SDK (= 144.7559.04)
+  - PurchasesHybridCommon (18.15.1):
+    - RevenueCat (= 5.78.0)
   - RCT-Folly (2024.01.01.00):
     - boost
     - DoubleConversion
@@ -1300,6 +1304,7 @@ PODS:
     - React-logger (= 0.74.1)
     - React-perflogger (= 0.74.1)
     - React-utils (= 0.74.1)
+  - RevenueCat (5.78.0)
   - RNCAsyncStorage (1.23.1):
     - React-Core
   - RNGestureHandler (2.16.2):
@@ -1323,6 +1328,9 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - RNPurchases (10.4.0):
+    - PurchasesHybridCommon (= 18.15.1)
+    - React-Core
   - RNReanimated (3.10.1):
     - DoubleConversion
     - glog
@@ -1398,6 +1406,7 @@ DEPENDENCIES:
   - EXNotifications (from `../node_modules/expo-notifications/ios`)
   - Expo (from `../node_modules/expo`)
   - ExpoAsset (from `../node_modules/expo-asset/ios`)
+  - ExpoCalendar (from `../node_modules/expo-calendar/ios`)
   - ExpoCamera (from `../node_modules/expo-camera/ios`)
   - ExpoContacts (from `../node_modules/expo-contacts/ios`)
   - ExpoCrypto (from `../node_modules/expo-crypto/ios`)
@@ -1470,6 +1479,7 @@ DEPENDENCIES:
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
+  - RNPurchases (from `../node_modules/react-native-purchases`)
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNSVG (from `../node_modules/react-native-svg`)
@@ -1480,6 +1490,8 @@ SPEC REPOS:
     - libavif
     - libdav1d
     - libwebp
+    - PurchasesHybridCommon
+    - RevenueCat
     - SDWebImage
     - SDWebImageAVIFCoder
     - SDWebImageSVGCoder
@@ -1507,6 +1519,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo"
   ExpoAsset:
     :path: "../node_modules/expo-asset/ios"
+  ExpoCalendar:
+    :path: "../node_modules/expo-calendar/ios"
   ExpoCamera:
     :path: "../node_modules/expo-camera/ios"
   ExpoContacts:
@@ -1648,6 +1662,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-async-storage/async-storage"
   RNGestureHandler:
     :path: "../node_modules/react-native-gesture-handler"
+  RNPurchases:
+    :path: "../node_modules/react-native-purchases"
   RNReanimated:
     :path: "../node_modules/react-native-reanimated"
   RNScreens:
@@ -1667,6 +1683,7 @@ SPEC CHECKSUMS:
   EXNotifications: 6ce128c0d3d3d161cd68bfd07d593db40e140396
   Expo: ed0a748eb6be0efd2c3df7f6de3f3158a14464c9
   ExpoAsset: 286fee7ba711ce66bf20b315e68106b13b8629fc
+  ExpoCalendar: 6f2398b252b9058b282de384cf7fc0b4c6a748ae
   ExpoCamera: cf49d2d121a9f883be0f98dde15a2185a1dd42be
   ExpoContacts: 7ff826023ae74e6f29876a0942e00722c9b7bdf4
   ExpoCrypto: c5c052d5f9f668c21975cb4caf072cec23c823fa
@@ -1690,6 +1707,7 @@ SPEC CHECKSUMS:
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   livekit-react-native: f1db75ee771ea70a8fc3631b54c172c34eba6dfc
   livekit-react-native-webrtc: 6384bffff182166749ea42ccc419cee6785b0603
+  PurchasesHybridCommon: eed735a411c1aee8c05d62933fa7c4a40ede4009
   RCT-Folly: 5dc73daec3476616d19e8a53f0156176f7b55461
   RCTDeprecation: efb313d8126259e9294dc4ee0002f44a6f676aba
   RCTRequired: f49ea29cece52aee20db633ae7edc4b271435562
@@ -1738,8 +1756,10 @@ SPEC CHECKSUMS:
   React-runtimescheduler: 87b14969bb0b10538014fb8407d472f9904bc8cd
   React-utils: 67574b07bff4429fd6c4d43a7fad8254d814ee20
   ReactCommon: 64c64f4ae1f2debe3fab1800e00cb8466a4477b7
+  RevenueCat: f3641992451c1426da8d8d1466cec3bbdb765962
   RNCAsyncStorage: aa75595c1aefa18f868452091fa0c411a516ce11
   RNGestureHandler: 326e35460fb6c8c64a435d5d739bea90d7ed4e49
+  RNPurchases: 1436e2381a4a06bfd6378158f9ebd11993e684cc
   RNReanimated: def444e044c354f38bb0a5926a8583ba19d944c1
   RNScreens: a2d8a2555b4653d7a19706eb172f855657ac30d7
   RNSVG: 0e7deccab0678200815104223aadd5ca734dd41d

@@ -20,6 +20,7 @@ export function useMoments() {
 
     if (error) {
       console.error("[useMoments]", error.message);
+      setLoading(false);
       return;
     }
 

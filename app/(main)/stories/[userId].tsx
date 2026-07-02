@@ -76,6 +76,9 @@ export default function StoryViewerScreen() {
       .upsert({ story_id: storyId, viewer_id: myId }, { onConflict: "story_id,viewer_id" });
   }, [myId, userId]);
 
+  const advanceRef = useRef<() => void>(() => {});
+  useEffect(() => { advanceRef.current = advance; });
+
   // ── Progress animation ────────────────────────────────────
   const startProgress = useCallback(() => {
     progress.setValue(0);
@@ -86,7 +89,7 @@ export default function StoryViewerScreen() {
       useNativeDriver: false,
     });
     anim.current.start(({ finished }) => {
-      if (finished) advance();
+      if (finished) advanceRef.current();
     });
   }, [index, stories.length]);
 
@@ -97,9 +100,6 @@ export default function StoryViewerScreen() {
     }
     return () => anim.current?.stop();
   }, [index, loading]);
-
-  const advanceRef = useRef(advance);
-  useEffect(() => { advanceRef.current = advance; });
 
   useEffect(() => {
     if (paused) {
