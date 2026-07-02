@@ -31,6 +31,19 @@ const FAINT  = Colors.textFaint;
 const SAGE   = Colors.sage;
 const GREEN  = Colors.green;
 
+const OCCASION_THEMES: Record<string, { emoji: string; label: string; gradients: [string, string, string, string]; accent: string }> = {
+  birthday: { emoji: "🎂", label: "Birthday",  gradients: ["#4A0020", "#881337", "#BE185D", "#F472B6"], accent: "#F472B6" },
+  party:    { emoji: "🎉", label: "Party",     gradients: ["#1E1040", "#3730A3", "#6D28D9", "#A78BFA"], accent: "#A78BFA" },
+  dinner:   { emoji: "🍽️", label: "Dinner",    gradients: ["#3D1C02", "#92400E", "#B45309", "#F59E0B"], accent: "#F59E0B" },
+  trip:     { emoji: "✈️", label: "Trip",      gradients: ["#0C1A40", "#1E3A8A", "#0369A1", "#38BDF8"], accent: "#38BDF8" },
+  wedding:  { emoji: "💍", label: "Wedding",   gradients: ["#3B0764", "#7E22CE", "#A21CAF", "#E879F9"], accent: "#E879F9" },
+  sports:   { emoji: "⚽", label: "Sports",    gradients: ["#052E16", "#14532D", "#15803D", "#4ADE80"], accent: "#4ADE80" },
+  other:    { emoji: "📅", label: "Event",     gradients: ["#1E2B1A", "#2D4A24", "#3D6B35", "#8FA876"], accent: "#8FA876" },
+};
+function getTheme(occasion?: string) {
+  return OCCASION_THEMES[occasion ?? "other"] ?? OCCASION_THEMES.other;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatFull(iso: string) {
@@ -85,6 +98,7 @@ function InviteCard({
   circleName,
   note,
   photo,
+  occasion,
 }: {
   title: string;
   iso: string;
@@ -92,7 +106,9 @@ function InviteCard({
   circleName: string;
   note: string;
   photo: string | null;
+  occasion?: string;
 }) {
+  const theme = getTheme(occasion);
   return (
     <View style={card.root}>
       {/* Background: cover photo or gradient */}
@@ -100,7 +116,7 @@ function InviteCard({
         <Image source={{ uri: photo }} style={card.bg} resizeMode="cover" />
       ) : (
         <LinearGradient
-          colors={["#1E2B1A", "#2D4A24", "#3D6B35", "#8FA876"]}
+          colors={theme.gradients}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={card.bg}
@@ -113,8 +129,8 @@ function InviteCard({
       {/* Card content */}
       <View style={card.content}>
         {/* Top label */}
-        <View style={card.hostBadge}>
-          <Text style={card.hostText}>You're invited</Text>
+        <View style={[card.hostBadge, { backgroundColor: theme.accent + "33", borderColor: theme.accent + "66" }]}>
+          <Text style={[card.hostText, { color: theme.accent }]}>{theme.emoji}  You're invited · {theme.label}</Text>
         </View>
 
         {/* Event title */}
@@ -125,8 +141,8 @@ function InviteCard({
 
         {/* Date & time */}
         <View style={card.metaRow}>
-          <View style={card.metaIcon}>
-            <Ionicons name="calendar-outline" size={14} color={SAGE} />
+          <View style={[card.metaIcon, { backgroundColor: theme.accent + "33" }]}>
+            <Ionicons name="calendar-outline" size={14} color={theme.accent} />
           </View>
           <View>
             <Text style={card.metaLabel}>{formatDate(iso)}</Text>
@@ -137,8 +153,8 @@ function InviteCard({
         {/* Location */}
         {location ? (
           <View style={card.metaRow}>
-            <View style={card.metaIcon}>
-              <Ionicons name="location-outline" size={14} color={SAGE} />
+            <View style={[card.metaIcon, { backgroundColor: theme.accent + "33" }]}>
+              <Ionicons name="location-outline" size={14} color={theme.accent} />
             </View>
             <Text style={card.metaLabel} numberOfLines={1}>{location}</Text>
           </View>
@@ -146,15 +162,15 @@ function InviteCard({
 
         {/* Group */}
         <View style={card.metaRow}>
-          <View style={card.metaIcon}>
-            <Ionicons name="people-outline" size={14} color={SAGE} />
+          <View style={[card.metaIcon, { backgroundColor: theme.accent + "33" }]}>
+            <Ionicons name="people-outline" size={14} color={theme.accent} />
           </View>
           <Text style={card.metaLabel}>{circleName}</Text>
         </View>
 
         {/* Personal note */}
         {note.trim() ? (
-          <View style={card.noteBox}>
+          <View style={[card.noteBox, { borderLeftColor: theme.accent }]}>
             <Text style={card.noteText}>"{note.trim()}"</Text>
           </View>
         ) : null}
@@ -162,7 +178,7 @@ function InviteCard({
         {/* Footer */}
         <View style={card.footer}>
           <Text style={card.footerText}>Friendspot</Text>
-          <View style={card.rsvpPill}>
+          <View style={[card.rsvpPill, { backgroundColor: theme.accent }]}>
             <Text style={card.rsvpText}>RSVP via app</Text>
           </View>
         </View>
@@ -174,7 +190,7 @@ function InviteCard({
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function SendInviteScreen() {
-  const { eventId } = useLocalSearchParams<{ eventId: string }>();
+  const { eventId, occasion } = useLocalSearchParams<{ eventId: string; occasion?: string }>();
   const insets = useSafeAreaInsets();
   const { event, loading } = useEventDetail(eventId);
 
@@ -345,6 +361,7 @@ export default function SendInviteScreen() {
           circleName={circleName}
           note={note}
           photo={photo}
+          occasion={occasion}
         />
 
         {/* Photo picker hint */}

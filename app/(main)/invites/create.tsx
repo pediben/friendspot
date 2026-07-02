@@ -27,6 +27,16 @@ const FAINT  = Colors.textFaint;
 const SAGE   = Colors.sage;
 const RED    = Colors.red;
 
+const OCCASIONS = [
+  { id: "birthday",  emoji: "🎂", label: "Birthday",  color: "#F472B6", defaultTitle: "Birthday Party" },
+  { id: "party",     emoji: "🎉", label: "Party",     color: "#A78BFA", defaultTitle: "Party Night"    },
+  { id: "dinner",    emoji: "🍽️", label: "Dinner",    color: "#F59E0B", defaultTitle: "Dinner"         },
+  { id: "trip",      emoji: "✈️", label: "Trip",      color: "#38BDF8", defaultTitle: "Trip"           },
+  { id: "wedding",   emoji: "💍", label: "Wedding",   color: "#E879F9", defaultTitle: "Wedding"        },
+  { id: "sports",    emoji: "⚽", label: "Sports",    color: "#4ADE80", defaultTitle: "Game Day"       },
+  { id: "other",     emoji: "📅", label: "Other",     color: "#8FA876", defaultTitle: ""               },
+];
+
 function parseDateTime(dateStr: string, timeStr: string): Date | null {
   const dateParts = dateStr.split("/").map(Number);
   if (dateParts.length !== 3 || dateParts.some(isNaN)) return null;
@@ -55,6 +65,7 @@ export default function CreateInviteScreen() {
   const yyyy = tomorrow.getFullYear();
   const defaultDate = `${mm}/${dd}/${yyyy}`;
 
+  const [occasion,    setOccasion]    = useState("party");
   const [title,       setTitle]       = useState("");
   const [description, setDescription] = useState("");
   const [location,    setLocation]    = useState("");
@@ -113,7 +124,7 @@ export default function CreateInviteScreen() {
         location:    location.trim() || undefined,
       });
       // Go straight to the invite compose screen
-      router.replace({ pathname: "/(main)/invites/send", params: { eventId } } as any);
+      router.replace({ pathname: "/(main)/invites/send", params: { eventId, occasion } } as any);
     } catch (e: any) {
       Alert.alert("Couldn't create invite", e.message);
     } finally {
@@ -145,6 +156,25 @@ export default function CreateInviteScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Occasion picker */}
+        <Text style={styles.label}>Occasion *</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+          {OCCASIONS.map(o => {
+            const sel = o.id === occasion;
+            return (
+              <TouchableOpacity
+                key={o.id}
+                style={[styles.occasionChip, sel && { borderColor: o.color, backgroundColor: o.color + "22" }]}
+                onPress={() => { setOccasion(o.id); if (!title) setTitle(o.defaultTitle); }}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.occasionEmoji}>{o.emoji}</Text>
+                <Text style={[styles.occasionLabel, sel && { color: o.color }]}>{o.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
         {/* Spot picker */}
         <Text style={styles.label}>Which Spot? *</Text>
         <Text style={styles.labelSub}>Pick the group of friends you're inviting</Text>
@@ -320,6 +350,10 @@ const styles = StyleSheet.create({
   spotMeta:       { fontSize: 11, color: FAINT, textAlign: "center" },
   newSpotChip:    { flexDirection: "column", alignItems: "center", gap: 3, borderWidth: 1.5, borderColor: SAGE, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 12, marginRight: 8, minWidth: 80, justifyContent: "center", backgroundColor: "rgba(143,168,118,0.06)" },
   newSpotText:    { fontSize: 13, fontWeight: "700", color: SAGE, textAlign: "center" },
+  // Occasion chips
+  occasionChip:   { alignItems: "center", gap: 4, backgroundColor: CARD, borderWidth: 1.5, borderColor: BORDER, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, marginRight: 8, minWidth: 72 },
+  occasionEmoji:  { fontSize: 24 },
+  occasionLabel:  { fontSize: 12, fontWeight: "700", color: MUTED },
   // Button
   createBtn:      { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: SAGE, borderRadius: 14, paddingVertical: 15, marginTop: 24 },
   createBtnText:  { fontSize: 16, fontWeight: "700", color: "#fff" },
