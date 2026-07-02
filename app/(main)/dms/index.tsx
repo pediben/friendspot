@@ -3,7 +3,7 @@
  */
 import {
   View, Text, FlatList, TouchableOpacity,
-  StyleSheet, ActivityIndicator,
+  StyleSheet, ActivityIndicator, ScrollView,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -106,7 +106,7 @@ export default function MessagesScreen() {
       {loading ? (
         <ActivityIndicator color={SAGE} style={{ marginTop: 80 }} />
       ) : conversations.length === 0 ? (
-        <View style={styles.empty}>
+        <ScrollView contentContainerStyle={styles.emptyScroll} showsVerticalScrollIndicator={false}>
           <View style={styles.emptyIcon}>
             <Ionicons name="chatbubble-ellipses-outline" size={32} color={SAGE} />
           </View>
@@ -114,7 +114,35 @@ export default function MessagesScreen() {
           <Text style={styles.emptyBody}>
             Message anyone in your Spots — tap their name inside a Spot to start a DM.
           </Text>
-        </View>
+
+          {/* Demo preview */}
+          <Text style={styles.demoLabel}>PREVIEW</Text>
+          {[
+            { initials: "AL", color: SAGE,      name: "Alex L.",    preview: "You: Heading over now 👋",  time: "2m", unread: 0 },
+            { initials: "MR", color: "#8B5CF6", name: "Maya R.",    preview: "Voice message",              time: "1h", unread: 2 },
+            { initials: "JK", color: "#F59E0B", name: "Jake K.",    preview: "You: See you Saturday!",    time: "3h", unread: 0 },
+          ].map((d, i) => (
+            <View key={i} style={styles.demoRow}>
+              <View style={[styles.demoAvatar, { backgroundColor: `${d.color}20`, borderColor: `${d.color}30` }]}>
+                <Text style={[styles.demoAvatarText, { color: d.color }]}>{d.initials}</Text>
+              </View>
+              <View style={styles.demoRowBody}>
+                <View style={styles.demoRowTop}>
+                  <View style={[styles.demoLine, { width: "40%", height: 13 }]} />
+                  <View style={[styles.demoLine, { width: "12%", height: 10 }]} />
+                </View>
+                <View style={styles.demoRowBottom}>
+                  <View style={[styles.demoLine, { width: "60%", height: 11, marginTop: 5 }]} />
+                  {d.unread > 0 && (
+                    <View style={styles.demoBadge}>
+                      <Text style={styles.demoBadgeText}>{d.unread}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
       ) : (
         <FlatList
           data={conversations}
@@ -187,6 +215,7 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 11, fontWeight: "800", color: "#000" },
 
   empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 48 },
+  emptyScroll: { alignItems: "center", paddingHorizontal: 24, paddingTop: 60, paddingBottom: 120 },
   emptyIcon: {
     width: 72, height: 72, borderRadius: 36,
     backgroundColor: "rgba(143,168,118,0.10)",
@@ -194,6 +223,17 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
     marginBottom: 24,
   },
-  emptyTitle: { fontSize: 20, fontWeight: "700", color: TEXT, marginBottom: 10 },
+  emptyTitle: { fontSize: 20, fontWeight: "700", color: TEXT, marginBottom: 10, textAlign: "center" },
   emptyBody: { fontSize: 14, color: MUTED, textAlign: "center", lineHeight: 22 },
+
+  demoLabel: { fontSize: 10, fontWeight: "700", color: FAINT, letterSpacing: 1.5, marginTop: 36, marginBottom: 12, alignSelf: "flex-start" },
+  demoRow: { flexDirection: "row", alignItems: "center", width: "100%", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: BORDER, gap: 14, opacity: 0.45 },
+  demoAvatar: { width: 50, height: 50, borderRadius: 25, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  demoAvatarText: { fontSize: 16, fontWeight: "700" },
+  demoRowBody: { flex: 1 },
+  demoRowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  demoRowBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  demoLine: { height: 12, borderRadius: 6, backgroundColor: "rgba(255,255,255,0.12)" },
+  demoBadge: { width: 20, height: 20, borderRadius: 10, backgroundColor: SAGE, alignItems: "center", justifyContent: "center" },
+  demoBadgeText: { fontSize: 11, fontWeight: "800", color: "#000" },
 });

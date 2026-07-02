@@ -303,6 +303,28 @@ export default function InvitesScreen() {
               >
                 <Text style={styles.emptyBtnText}>+ New Event</Text>
               </TouchableOpacity>
+
+              {/* Demo preview */}
+              <Text style={styles.demoLabel}>PREVIEW</Text>
+              {[
+                { emoji: "🎂", color: "#F472B6" },
+                { emoji: "🍽️", color: "#F59E0B" },
+                { emoji: "✈️", color: "#38BDF8" },
+              ].map((d, i) => (
+                <View key={i} style={[styles.demoCard, { borderColor: `${d.color}30` }]}>
+                  <View style={styles.demoCardRow}>
+                    <Text style={styles.demoCardEmoji}>{d.emoji}</Text>
+                    <View style={{ flex: 1, gap: 6 }}>
+                      <View style={[styles.demoLine, { width: "60%", height: 13 }]} />
+                      <View style={[styles.demoLine, { width: "35%", height: 10, opacity: 0.5 }]} />
+                    </View>
+                    <View style={[styles.demoInviteChip, { backgroundColor: `${d.color}18`, borderColor: `${d.color}40` }]}>
+                      <Text style={[styles.demoInviteText, { color: d.color }]}>Invite</Text>
+                    </View>
+                  </View>
+                  <View style={[styles.demoLine, { width: "50%", height: 10, marginTop: 10, opacity: 0.35 }]} />
+                </View>
+              ))}
             </View>
           )
         }
@@ -342,4 +364,12 @@ const styles = StyleSheet.create({
   emptyBody:     { fontSize: 14, color: MUTED, textAlign: "center", paddingHorizontal: 32, marginBottom: 16 },
   emptyBtn:      { marginTop: 16, backgroundColor: "rgba(143,168,118,0.15)", borderWidth: 1, borderColor: SAGE, borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10 },
   emptyBtnText:  { fontSize: 14, fontWeight: "700", color: SAGE },
+  // Demo preview
+  demoLabel:     { fontSize: 10, fontWeight: "700", color: FAINT, letterSpacing: 1.5, marginTop: 36, marginBottom: 12, alignSelf: "flex-start" },
+  demoCard:      { width: "100%", backgroundColor: CARD, borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 10, opacity: 0.5 },
+  demoCardRow:   { flexDirection: "row", alignItems: "center", gap: 10 },
+  demoCardEmoji: { fontSize: 22 },
+  demoLine:      { height: 12, borderRadius: 6, backgroundColor: "rgba(255,255,255,0.12)" },
+  demoInviteChip:{ borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  demoInviteText:{ fontSize: 12, fontWeight: "700" },
 });
