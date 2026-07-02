@@ -39,7 +39,8 @@
     "production": {
       "ios": {
         "appleId": "pedi.ben@gmail.com",
-        "appleTeamId": "K7FU639GQU"
+        "appleTeamId": "K7FU639GQU",
+        "ascAppId": "6781542972"
       }
     }
   }
