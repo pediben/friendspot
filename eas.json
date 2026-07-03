@@ -25,7 +25,8 @@
     "production": {
       "autoIncrement": true,
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "image": "latest"
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://tocfspcqquxdcgoltrxc.supabase.co",

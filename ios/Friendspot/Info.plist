@@ -59,6 +59,12 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Friendspot adds events to your calendar so you never miss a Spot hangout.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Friendspot adds events to your calendar so you never miss a Spot hangout.</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>Friendspot adds events to your calendar so you never miss a Spot hangout.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Friendspot uses your camera to capture moments.</string>
 	<key>NSContactsUsageDescription</key>
@@ -67,6 +73,8 @@
 	<string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Friendspot uses your microphone to record voice notes for your friend circles.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Friendspot saves event photos to your library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Friendspot accesses your photos to share moments with your circles.</string>
 	<key>NSUserActivityTypes</key>
