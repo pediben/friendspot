@@ -18,9 +18,9 @@
  */
 
 import * as Crypto from "expo-crypto";
-import * as FileSystem from "expo-file-system";
-import { gcm } from "@noble/ciphers/aes";
-import { randomBytes } from "@noble/ciphers/utils";
+import * as FileSystem from "expo-file-system/legacy";
+import { gcm } from "@noble/ciphers/aes.js";
+import { randomBytes } from "@noble/ciphers/utils.js";
 
 // ---------------------------------------------------------------------------
 // Types

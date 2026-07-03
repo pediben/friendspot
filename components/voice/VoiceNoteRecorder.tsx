@@ -2,6 +2,8 @@
  * VoiceNoteRecorder
  * Hold-to-record button. Shows waveform and duration while recording.
  * Calls onSend(uri, durationMs, waveform) on release.
+ *
+ * Migrated from expo-av → expo-audio (SDK 55)
  */
 import { useRef, useState, useEffect } from "react";
 import {
@@ -11,9 +13,14 @@ import {
   Pressable,
   Animated,
   Alert,
-  Platform,
 } from "react-native";
-import { Audio } from "expo-av";
+import {
+  useAudioRecorder,
+  useAudioRecorderState,
+  AudioModule,
+  RecordingPresets,
+  setAudioModeAsync,
+} from "expo-audio";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 
@@ -25,85 +32,99 @@ const MAX_MS = 60_000;
 const MIN_MS = 1_000;
 
 export function VoiceNoteRecorder({ onSend }: Props) {
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [durationMs, setDurationMs] = useState(0);
+  const [isRecording, setIsRecording] = useState(false);
   const [sending, setSending] = useState(false);
   const waveformRef = useRef<number[]>([]);
-  const timerRef = useRef<NodeJS.Timeout>();
-  const durationMsRef = useRef(0); // ref so stopRecording always reads current value
-  const recordingRef = useRef<Audio.Recording | null>(null); // ref for unmount cleanup
+  const waveformTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const pulseAnimRef = useRef<Animated.CompositeAnimation | null>(null);
 
-  // Unmount-only cleanup — stop any in-progress recording when the component is removed
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(audioRecorder, 100); // poll every 100ms
+
+  // Auto-stop at max duration
+  useEffect(() => {
+    if (isRecording && recorderState.durationMillis >= MAX_MS) {
+      stopRecording();
+    }
+  }, [recorderState.durationMillis, isRecording]);
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      clearInterval(timerRef.current);
-      recordingRef.current?.stopAndUnloadAsync().catch(() => {});
+      clearInterval(waveformTimerRef.current);
+      pulseAnimRef.current?.stop();
+      if (isRecording) {
+        audioRecorder.stop().catch(() => {});
+      }
     };
   }, []);
 
   const startRecording = async () => {
     try {
-    const { granted } = await Audio.requestPermissionsAsync();
-    if (!granted) {
-      Alert.alert("Microphone access needed", "Go to Settings → Friendspot and enable Microphone.");
-      return;
-    }
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
-    });
-
-    const { recording: rec } = await Audio.Recording.createAsync(
-      Audio.RecordingOptionsPresets.HIGH_QUALITY
-    );
-    recordingRef.current = rec;
-    setRecording(rec);
-    setDurationMs(0);
-    waveformRef.current = [];
-
-    // Pulse animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(scaleAnim, { toValue: 1.18, duration: 400, useNativeDriver: true }),
-        Animated.timing(scaleAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-      ])
-    ).start();
-
-    // Poll duration + simulate waveform
-    timerRef.current = setInterval(async () => {
-      const status = await rec.getStatusAsync();
-      if (status.isRecording) {
-        const ms = status.durationMillis ?? 0;
-        durationMsRef.current = ms;
-        setDurationMs(ms);
-        // Simulate amplitude (replace with actual metering if available)
-        waveformRef.current.push(Math.random() * 0.8 + 0.1);
-
-        if (ms >= MAX_MS) stopRecording(rec);
+      const { granted } = await AudioModule.requestRecordingPermissionsAsync();
+      if (!granted) {
+        Alert.alert(
+          "Microphone access needed",
+          "Go to Settings → Friendspot and enable Microphone."
+        );
+        return;
       }
-    }, 100);
+
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
+      });
+
+      await audioRecorder.prepareToRecordAsync();
+      audioRecorder.record();
+      waveformRef.current = [];
+      setIsRecording(true);
+
+      // Pulse animation
+      const anim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(scaleAnim, {
+            toValue: 1.18,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scaleAnim, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulseAnimRef.current = anim;
+      anim.start();
+
+      // Simulate waveform amplitude
+      waveformTimerRef.current = setInterval(() => {
+        waveformRef.current.push(Math.random() * 0.8 + 0.1);
+      }, 100);
     } catch (e: any) {
       Alert.alert("Couldn't start recording", e.message);
     }
   };
 
-  const stopRecording = async (rec?: Audio.Recording) => {
-    clearInterval(timerRef.current);
-    scaleAnim.stopAnimation();
-    Animated.timing(scaleAnim, { toValue: 1, duration: 150, useNativeDriver: true }).start();
+  const stopRecording = async () => {
+    clearInterval(waveformTimerRef.current);
+    pulseAnimRef.current?.stop();
+    pulseAnimRef.current = null;
+    Animated.timing(scaleAnim, {
+      toValue: 1,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
 
-    const active = rec ?? recording;
-    if (!active) return;
-    recordingRef.current = null;
-    setRecording(null);
+    if (!isRecording) return;
+    setIsRecording(false);
 
-    // Use ref — avoids iOS getStatusAsync() returning 0 on a live recording
-    const duration = durationMsRef.current;
-    durationMsRef.current = 0;
+    const duration = recorderState.durationMillis;
 
-    await active.stopAndUnloadAsync();
-    const uri = active.getURI();
+    await audioRecorder.stop();
+    const uri = audioRecorder.uri;
 
     if (!uri || duration < MIN_MS) return; // Too short — discard
 
@@ -112,7 +133,6 @@ export function VoiceNoteRecorder({ onSend }: Props) {
       await onSend(uri, duration, waveformRef.current);
     } finally {
       setSending(false);
-      setDurationMs(0);
     }
   };
 
@@ -121,23 +141,25 @@ export function VoiceNoteRecorder({ onSend }: Props) {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   };
 
-  const isRecording = !!recording;
-
   return (
     <View style={styles.container}>
       {isRecording && (
         <View style={styles.status}>
           <View style={styles.dot} />
-          <Text style={styles.duration}>{formatDuration(durationMs)}</Text>
+          <Text style={styles.duration}>
+            {formatDuration(recorderState.durationMillis)}
+          </Text>
           <Text style={styles.hint}>Release to send</Text>
         </View>
       )}
 
-      <Animated.View style={[styles.buttonWrap, { transform: [{ scale: scaleAnim }] }]}>
+      <Animated.View
+        style={[styles.buttonWrap, { transform: [{ scale: scaleAnim }] }]}
+      >
         <Pressable
           style={[styles.button, isRecording && styles.buttonActive]}
           onPressIn={startRecording}
-          onPressOut={() => stopRecording()}
+          onPressOut={stopRecording}
           disabled={sending}
         >
           <Ionicons

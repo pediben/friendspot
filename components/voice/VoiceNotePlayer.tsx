@@ -2,10 +2,19 @@
  * VoiceNotePlayer
  * Renders a voice note bubble with waveform visualization and play/pause control.
  * Downloads and decrypts the audio on first play.
+ *
+ * Migrated from expo-av → expo-audio (SDK 55)
  */
-import { useRef, useState, useMemo, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
-import { Audio } from "expo-av";
+import { useRef, useState, useMemo, useEffect, useCallback } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
+import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
+import type { AudioPlayer } from "expo-audio";
 import { Ionicons } from "@expo/vector-icons";
 import { CircleMessageWithSender } from "@/types/database";
 import { Avatar } from "@/components/ui/Avatar";
@@ -20,29 +29,42 @@ interface Props {
 }
 
 export function VoiceNotePlayer({ note, isMine, circleKey }: Props) {
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0); // 0–1
 
-  const playbackRef = useRef<Audio.Sound | null>(null);
+  // Subscribe to playback status via the event listener
+  const attachStatusListener = useCallback((player: AudioPlayer) => {
+    const sub = player.addListener("playbackStatusUpdate", (status) => {
+      if (!status.isLoaded) return;
+      const p = status.currentTime / Math.max(status.duration, 0.001);
+      setProgress(Math.min(p, 1));
+      if (status.didJustFinish) {
+        setPlaying(false);
+        setProgress(0);
+      }
+    });
+    return sub;
+  }, []);
 
-  // Unload audio on unmount to prevent native memory leak
+  // Unload audio on unmount
   useEffect(() => {
     return () => {
-      playbackRef.current?.unloadAsync().catch(() => {});
+      playerRef.current?.remove();
+      playerRef.current = null;
     };
   }, []);
 
   const togglePlay = async () => {
     if (playing) {
-      await playbackRef.current?.pauseAsync();
+      playerRef.current?.pause();
       setPlaying(false);
       return;
     }
 
-    if (sound) {
-      await sound.playAsync();
+    if (playerRef.current) {
+      playerRef.current.play();
       setPlaying(true);
       return;
     }
@@ -50,18 +72,18 @@ export function VoiceNotePlayer({ note, isMine, circleKey }: Props) {
     // First play: download + decrypt
     setLoading(true);
     try {
+      await setAudioModeAsync({ playsInSilentMode: true });
+
       const { data, error } = await supabase.storage
         .from("voice-notes")
         .download(note.media_url ?? "");
 
       if (error || !data) throw error ?? new Error("Download failed");
 
-      // Decrypt the encrypted .enc blob to a local temp file URI
       let uri: string;
       if (circleKey) {
         uri = await decryptBlobToUri(data, circleKey, "audio/m4a");
       } else {
-        // Fallback: audio might not be encrypted (e.g. old notes) — use signed URL
         const { data: signed } = await supabase.storage
           .from("voice-notes")
           .createSignedUrl(note.media_url ?? "", 3600);
@@ -69,23 +91,10 @@ export function VoiceNotePlayer({ note, isMine, circleKey }: Props) {
         uri = signed.signedUrl;
       }
 
-      const { sound: s } = await Audio.Sound.createAsync(
-        { uri },
-        { shouldPlay: true },
-        (status) => {
-          if (status.isLoaded) {
-            const p = status.positionMillis / (status.durationMillis ?? 1);
-            setProgress(Math.min(p, 1));
-            if (status.didJustFinish) {
-              setPlaying(false);
-              setProgress(0);
-            }
-          }
-        }
-      );
-
-      playbackRef.current = s;
-      setSound(s);
+      const newPlayer = createAudioPlayer({ uri });
+      playerRef.current = newPlayer;
+      attachStatusListener(newPlayer);
+      newPlayer.play();
       setPlaying(true);
     } catch (e) {
       console.error("[VoiceNotePlayer]", e);
@@ -108,10 +117,18 @@ export function VoiceNotePlayer({ note, isMine, circleKey }: Props) {
   return (
     <View style={[styles.row, isMine && styles.rowMine]}>
       {!isMine && (
-        <Avatar uri={note.sender.avatar_url} name={note.sender.display_name} size={32} />
+        <Avatar
+          uri={note.sender.avatar_url}
+          name={note.sender.display_name}
+          size={32}
+        />
       )}
       <View style={[styles.bubble, isMine && styles.bubbleMine]}>
-        <TouchableOpacity onPress={togglePlay} style={styles.playBtn} disabled={loading}>
+        <TouchableOpacity
+          onPress={togglePlay}
+          style={styles.playBtn}
+          disabled={loading}
+        >
           {loading ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
@@ -140,7 +157,9 @@ export function VoiceNotePlayer({ note, isMine, circleKey }: Props) {
           })}
         </View>
 
-        <Text style={styles.duration}>{formatDuration(note.duration_seconds ?? 0)}</Text>
+        <Text style={styles.duration}>
+          {formatDuration(note.duration_seconds ?? 0)}
+        </Text>
       </View>
     </View>
   );

@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -50,6 +48,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
@@ -59,9 +59,9 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<key>NSCalendarsUsageDescription</key>
-	<string>Friendspot adds events to your calendar so you never miss a Spot hangout.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Friendspot adds events to your calendar so you never miss a Spot hangout.</string>
+	<key>NSCalendarsUsageDescription</key>
 	<string>Friendspot adds events to your calendar so you never miss a Spot hangout.</string>
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
 	<string>Friendspot adds events to your calendar so you never miss a Spot hangout.</string>
@@ -81,6 +81,8 @@
 	<array>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
 	</array>
+	<key>RCTNewArchEnabled</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>SplashScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
