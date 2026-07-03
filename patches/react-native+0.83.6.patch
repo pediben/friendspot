@@ -1,0 +1,21 @@
+diff --git a/node_modules/react-native/Libraries/AppDelegate/RCTAppDelegate+Protected.h b/node_modules/react-native/Libraries/AppDelegate/RCTAppDelegate+Protected.h
+new file mode 100644
+index 0000000..69ef11e
+--- /dev/null
++++ b/node_modules/react-native/Libraries/AppDelegate/RCTAppDelegate+Protected.h
+@@ -0,0 +1,15 @@
++/*
++ * Copyright (c) Meta Platforms, Inc. and affiliates.
++ *
++ * This source code is licensed under the MIT license found in the
++ * LICENSE file in the root directory of this source tree.
++ */
++
++// Stub: RCTAppDelegate+Protected was removed in React Native 0.80+.
++// This file exists for backward compatibility with generated umbrella headers.
++// Use RCTReactNativeFactory instead.
++
++#import "RCTAppDelegate.h"
++
++@interface RCTAppDelegate (Protected)
++@end
