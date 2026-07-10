@@ -13,7 +13,7 @@ export default {
       backgroundColor: "#000000",
     },
     ios: {
-      supportsTablet: true,
+      supportsTablet: false,
       bundleIdentifier: "com.friendspot.app",
       buildNumber: "5",
       associatedDomains: ["applinks:friendspot.online"],

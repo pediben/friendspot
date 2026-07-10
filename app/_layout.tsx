@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { View, Animated, StyleSheet, Platform, AppState } from "react-native";
+import { useEffect, useRef, Component } from "react";
+import { View, Text, Animated, StyleSheet, Platform, AppState, TouchableOpacity } from "react-native";
 import { Stack } from "expo-router";
 import { SplashScreen } from "expo-router";
 
@@ -21,6 +21,55 @@ import { clearCircleKeyCache } from "@/lib/keyExchange";
 import { LogoMark } from "@/components/ui/LogoMark";
 
 SplashScreen.preventAutoHideAsync();
+
+// ─── Error boundary — catches any unhandled render crash ─────────────────────
+interface EBState { hasError: boolean }
+class AppErrorBoundary extends Component<{ children: React.ReactNode }, EBState> {
+  state: EBState = { hasError: false };
+
+  static getDerivedStateFromError(): EBState {
+    SplashScreen.hideAsync().catch(() => {});
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("[AppErrorBoundary]", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={err.root}>
+          <LogoMark size={48} />
+          <Text style={err.title}>Something went wrong</Text>
+          <Text style={err.body}>Please force-quit and reopen the app.</Text>
+          <TouchableOpacity
+            style={err.btn}
+            onPress={() => this.setState({ hasError: false })}
+          >
+            <Text style={err.btnText}>Try again</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const err = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: "#000000",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+    gap: 16,
+  },
+  title: { color: "#FFFFFF", fontSize: 20, fontWeight: "700", textAlign: "center" },
+  body:  { color: "#9CA3AF", fontSize: 15, textAlign: "center" },
+  btn:   { marginTop: 8, backgroundColor: "#7C3AED", borderRadius: 12, paddingHorizontal: 28, paddingVertical: 12 },
+  btnText: { color: "#FFFFFF", fontWeight: "600", fontSize: 15 },
+});
 
 // ─── Custom animated splash ──────────────────────────────────────────────────
 function AppSplash() {
@@ -111,17 +160,19 @@ export default function RootLayout() {
   // Stack MUST always be rendered — expo-router requires navigator on every render.
   // Overlay the splash on top while loading instead of replacing the Stack.
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(main)" />
-      </Stack>
-      {loading && (
-        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-          <AppSplash />
-        </View>
-      )}
-    </GestureHandlerRootView>
+    <AppErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <StatusBar style="light" />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(main)" />
+        </Stack>
+        {loading && (
+          <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+            <AppSplash />
+          </View>
+        )}
+      </GestureHandlerRootView>
+    </AppErrorBoundary>
   );
 }
