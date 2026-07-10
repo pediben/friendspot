@@ -62,17 +62,22 @@ target 'Friendspot' do
     )
 
     # Fix: "duplicate interface definition for class 'RCTRootViewFactory'"
-    # When using the prebuilt RN core, React-Core-prebuilt.xcframework already contains
-    # all RCTAppDelegate headers. However, CocoaPods also installs React-RCTAppDelegate
-    # from source (node_modules/react-native), placing an identical header at a different
-    # path. Clang's #import sees two distinct files => duplicate @interface error.
-    # Solution: remove the source-side React-RCTAppDelegate symlinks after pod install.
+    # React-Core-prebuilt.xcframework embeds a React_RCTAppDelegate/ subdirectory
+    # in its CocoaPods headers namespace that mirrors every header from the
+    # React-RCTAppDelegate source pod.  When Clang compiles, it finds both:
+    #   Pods/Headers/Public/React-RCTAppDelegate/RCTRootViewFactory.h       (path A)
+    #   Pods/Headers/Public/React-Core-prebuilt/React_RCTAppDelegate/RCTRootViewFactory.h  (path B)
+    # Because A ≠ B, #import deduplication doesn't fire and both @interface
+    # declarations land in the same translation unit => "duplicate interface" error.
+    # Fix: delete the React_RCTAppDelegate/ subdir from React-Core-prebuilt.
+    # React-RCTAppDelegate's flat headers (including RCTAppDelegate.h) remain
+    # untouched, so #import <RCTAppDelegate.h> still resolves correctly.
     if ENV['RCT_USE_PREBUILT_RNCORE'] == '1'
       ['Public', 'Private'].each do |visibility|
-        dir = File.join(installer.sandbox.root, 'Headers', visibility, 'React-RCTAppDelegate')
-        if Dir.exist?(dir)
-          FileUtils.rm_rf(dir)
-          Pod::UI.puts "  [fix] Removed duplicate React-RCTAppDelegate #{visibility.downcase} headers (prebuilt core active)"
+        dup_dir = File.join(installer.sandbox.root, 'Headers', visibility, 'React-Core-prebuilt', 'React_RCTAppDelegate')
+        if Dir.exist?(dup_dir)
+          FileUtils.rm_rf(dup_dir)
+          Pod::UI.puts "  [fix] Removed React_RCTAppDelegate subdir from #{visibility} React-Core-prebuilt headers (prebuilt core active)"
         end
       end
     end
