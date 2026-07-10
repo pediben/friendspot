@@ -62,22 +62,58 @@ target 'Friendspot' do
     )
 
     # Fix: "duplicate interface definition for class 'RCTRootViewFactory'"
-    # React-Core-prebuilt.xcframework embeds a React_RCTAppDelegate/ subdirectory
-    # in its CocoaPods headers namespace that mirrors every header from the
-    # React-RCTAppDelegate source pod.  When Clang compiles, it finds both:
-    #   Pods/Headers/Public/React-RCTAppDelegate/RCTRootViewFactory.h       (path A)
-    #   Pods/Headers/Public/React-Core-prebuilt/React_RCTAppDelegate/RCTRootViewFactory.h  (path B)
-    # Because A ≠ B, #import deduplication doesn't fire and both @interface
-    # declarations land in the same translation unit => "duplicate interface" error.
-    # Fix: delete the React_RCTAppDelegate/ subdir from React-Core-prebuilt.
-    # React-RCTAppDelegate's flat headers (including RCTAppDelegate.h) remain
-    # untouched, so #import <RCTAppDelegate.h> still resolves correctly.
+    #
+    # Background:
+    #   React-Core-prebuilt.xcframework bundles React_RCTAppDelegate headers at:
+    #     Pods/Headers/Public/React-Core-prebuilt/React_RCTAppDelegate/<Header>.h
+    #   CocoaPods also installs the React-RCTAppDelegate SOURCE pod at:
+    #     Pods/Headers/Public/React-RCTAppDelegate/<Header>.h
+    #
+    #   Expo's RCTAppDelegateUmbrella.h imports the umbrella via
+    #     #import <React_RCTAppDelegate/React-RCTAppDelegate-umbrella.h>
+    #   which pulls in ALL headers from the React_RCTAppDelegate module (prebuilt path).
+    #   Other code (e.g., AppDelegate.mm) imports via the flat React-RCTAppDelegate path.
+    #
+    #   Because the two symlinks for each header point to DIFFERENT physical files
+    #   (prebuilt xcframework source vs. node_modules/react-native source),
+    #   Clang's #import inode-deduplication doesn't fire, resulting in:
+    #     "duplicate interface definition for class 'RCTRootViewFactory'"
+    #
+    # Fix:
+    #   Redirect the React-RCTAppDelegate flat symlinks to the same absolute target
+    #   as the React-Core-prebuilt/React_RCTAppDelegate symlinks.  Both import paths
+    #   then resolve to the same inode => #import deduplicates correctly.
+    #   Neither directory is deleted, so all import forms continue to work.
     if ENV['RCT_USE_PREBUILT_RNCORE'] == '1'
       ['Public', 'Private'].each do |visibility|
-        dup_dir = File.join(installer.sandbox.root, 'Headers', visibility, 'React-Core-prebuilt', 'React_RCTAppDelegate')
-        if Dir.exist?(dup_dir)
-          FileUtils.rm_rf(dup_dir)
-          Pod::UI.puts "  [fix] Removed React_RCTAppDelegate subdir from #{visibility} React-Core-prebuilt headers (prebuilt core active)"
+        prebuilt_dir = File.join(installer.sandbox.root, 'Headers', visibility, 'React-Core-prebuilt', 'React_RCTAppDelegate')
+        source_dir   = File.join(installer.sandbox.root, 'Headers', visibility, 'React-RCTAppDelegate')
+
+        next unless Dir.exist?(prebuilt_dir) && Dir.exist?(source_dir)
+
+        redirected = []
+        Dir.glob(File.join(prebuilt_dir, '*.h')).each do |prebuilt_link|
+          basename    = File.basename(prebuilt_link)
+          source_link = File.join(source_dir, basename)
+
+          next unless File.symlink?(source_link) && File.symlink?(prebuilt_link)
+
+          # Resolve to the absolute real path so the redirect is dir-independent
+          begin
+            abs_target = File.realpath(prebuilt_link)
+          rescue Errno::ENOENT
+            next  # broken prebuilt symlink — skip
+          end
+
+          next if File.realpath(source_link) == abs_target rescue nil  # already unified
+
+          File.delete(source_link)
+          File.symlink(abs_target, source_link)
+          redirected << basename
+        end
+
+        unless redirected.empty?
+          Pod::UI.puts "  [fix] Unified #{redirected.size} React-RCTAppDelegate #{visibility.downcase} symlinks → prebuilt targets (inode dedup active)"
         end
       end
     end
