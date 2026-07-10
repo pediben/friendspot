@@ -65,6 +65,10 @@
 	<string>Friendspot adds events to your calendar so you never miss a Spot hangout.</string>
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
 	<string>Friendspot adds events to your calendar so you never miss a Spot hangout.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Friendspot can add reminders for your upcoming Spot hangouts.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Friendspot can add reminders for your upcoming Spot hangouts.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Friendspot uses your camera to capture moments.</string>
 	<key>NSContactsUsageDescription</key>
@@ -90,20 +94,13 @@
 		<string>arm64</string>
 	</array>
 	<key>UIRequiresFullScreen</key>
-	<false/>
+	<true/>
 	<key>UIStatusBarStyle</key>
 	<string>UIStatusBarStyleDefault</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UIUserInterfaceStyle</key>
 	<string>Light</string>
