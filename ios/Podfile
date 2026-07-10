@@ -2,6 +2,7 @@ require File.join(File.dirname(`node --print "require.resolve('expo/package.json
 require File.join(File.dirname(`node --print "require.resolve('react-native/package.json')"`), "scripts/react_native_pods")
 
 require 'json'
+require 'fileutils'
 podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
 
 ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] ||= podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
@@ -59,6 +60,22 @@ target 'Friendspot' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => podfile_properties['apple.ccacheEnabled'] == 'true',
     )
+
+    # Fix: "duplicate interface definition for class 'RCTRootViewFactory'"
+    # When using the prebuilt RN core, React-Core-prebuilt.xcframework already contains
+    # all RCTAppDelegate headers. However, CocoaPods also installs React-RCTAppDelegate
+    # from source (node_modules/react-native), placing an identical header at a different
+    # path. Clang's #import sees two distinct files => duplicate @interface error.
+    # Solution: remove the source-side React-RCTAppDelegate symlinks after pod install.
+    if ENV['RCT_USE_PREBUILT_RNCORE'] == '1'
+      ['Public', 'Private'].each do |visibility|
+        dir = File.join(installer.sandbox.root, 'Headers', visibility, 'React-RCTAppDelegate')
+        if Dir.exist?(dir)
+          FileUtils.rm_rf(dir)
+          Pod::UI.puts "  [fix] Removed duplicate React-RCTAppDelegate #{visibility.downcase} headers (prebuilt core active)"
+        end
+      end
+    end
 
     # This is necessary for Xcode 14+, because it signs resource bundles by default
     # when building for devices.
