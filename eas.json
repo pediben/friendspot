@@ -18,6 +18,7 @@
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://tocfspcqquxdcgoltrxc.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvY2ZzcGNxcXV4ZGNnb2x0cnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3MDEwMzAsImV4cCI6MjA5NDI3NzAzMH0.5YWADI_OD-VSdVQXwYU9zXg-uQO4GGnhN1x3tX6Qjx8",
         "EXPO_PUBLIC_EAS_PROJECT_ID": "59303b6b-1e01-43ec-a9c9-4593716bdd2b",
         "EXPO_PUBLIC_LIVEKIT_URL": "wss://bato-project-epm2okyn.livekit.cloud"
       }
@@ -30,6 +31,7 @@
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://tocfspcqquxdcgoltrxc.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvY2ZzcGNxcXV4ZGNnb2x0cnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3MDEwMzAsImV4cCI6MjA5NDI3NzAzMH0.5YWADI_OD-VSdVQXwYU9zXg-uQO4GGnhN1x3tX6Qjx8",
         "EXPO_PUBLIC_EAS_PROJECT_ID": "59303b6b-1e01-43ec-a9c9-4593716bdd2b",
         "EXPO_PUBLIC_LIVEKIT_URL": "wss://bato-project-epm2okyn.livekit.cloud"
       }

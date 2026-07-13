@@ -56,7 +56,7 @@ const RC_API_KEY_IOS = process.env.EXPO_PUBLIC_RC_IOS_API_KEY ?? "";
 // ── Configure RevenueCat once at module load ──────────────────────────────────
 let _rcConfigured = false;
 let _rcLoggedInAs = "";
-function ensureRC() {
+function ensureRC(): boolean {
   if (_rcConfigured) return;
   if (Platform.OS === "ios") {
     Purchases.configure({ apiKey: RC_API_KEY_IOS });
