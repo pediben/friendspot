@@ -21,19 +21,29 @@ try {
   console.warn("[Notifications] expo-device not available (Expo Go). Push notifications disabled.");
 }
 
-// How foreground notifications appear while app is open
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
-
 export function useNotifications() {
   const { session } = useAuthStore();
   const listenerRef = useRef<Notifications.Subscription | null>(null);
+
+  // Register the foreground notification handler inside useEffect so it runs
+  // after React Native is fully mounted, not at module evaluation time.
+  // Calling setNotificationHandler at module scope triggered a native ObjC
+  // exception on iOS 26 via the TurboModule bridge (crash in
+  // ObjCTurboModule::performVoidMethodInvocation → RCTExceptionsManager).
+  useEffect(() => {
+    try {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+        }),
+      });
+    } catch (e) {
+      console.warn("[Notifications] setNotificationHandler failed:", e);
+    }
+  }, []);
 
   useEffect(() => {
     if (!session?.user.id) return;

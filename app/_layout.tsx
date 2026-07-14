@@ -2,15 +2,6 @@ import { useEffect, useRef, Component } from "react";
 import { View, Text, Animated, StyleSheet, Platform, AppState, TouchableOpacity } from "react-native";
 import { Stack } from "expo-router";
 import { SplashScreen } from "expo-router";
-
-// registerGlobals must be called before any LiveKit usage.
-// Wrapped in try/catch so Expo Go doesn't crash (native module absent).
-try {
-  const { registerGlobals } = require("@livekit/react-native-webrtc");
-  registerGlobals();
-} catch {
-  // Expo Go: WebRTC native module not available — voice rooms require a native build.
-}
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import { supabase } from "@/lib/supabase";
@@ -114,6 +105,21 @@ export default function RootLayout() {
   const { setSession, setLoading, loading } = useAuthStore();
   useNotifications();
   useUserKeys();
+
+  useEffect(() => {
+    // registerGlobals must be called before any LiveKit usage.
+    // Deferred to useEffect (instead of module scope) so it runs after React
+    // Native is fully initialized — calling it synchronously at module
+    // evaluation time caused native background-thread exceptions on iOS 26
+    // that bypassed the try/catch and crashed via the TurboModule bridge.
+    try {
+      const { registerGlobals } = require("@livekit/react-native-webrtc");
+      registerGlobals();
+    } catch {
+      // Expo Go / simulator: WebRTC native module not available.
+      // Voice rooms require a native build.
+    }
+  }, []);
 
   useEffect(() => {
     // Fallback: never stuck > 4s

@@ -53,17 +53,34 @@ export const IAP_PRODUCTS = {
 
 const RC_API_KEY_IOS = process.env.EXPO_PUBLIC_RC_IOS_API_KEY ?? "";
 
-// ── Configure RevenueCat once at module load ──────────────────────────────────
+// ── Configure RevenueCat once (lazily, on first use) ─────────────────────────
 let _rcConfigured = false;
 let _rcLoggedInAs = "";
+
+/**
+ * Configures RevenueCat if not already done.
+ * Returns true if RC is ready to use, false if it should be skipped
+ * (missing API key, unsupported platform, or config error).
+ */
 function ensureRC(): boolean {
-  if (_rcConfigured) return;
+  if (_rcConfigured) return true;
+  // Guard: Purchases.configure throws if apiKey is empty/undefined
+  if (!RC_API_KEY_IOS) {
+    console.warn("[useSubscription] EXPO_PUBLIC_RC_IOS_API_KEY is not set — IAP disabled.");
+    return false;
+  }
   if (Platform.OS === "ios") {
-    Purchases.configure({ apiKey: RC_API_KEY_IOS });
-    if (__DEV__) Purchases.setLogLevel(LOG_LEVEL.DEBUG);
-    _rcConfigured = true;
+    try {
+      Purchases.configure({ apiKey: RC_API_KEY_IOS });
+      if (__DEV__) Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+      _rcConfigured = true;
+    } catch (e: any) {
+      console.warn("[useSubscription] RevenueCat configure failed:", e?.message ?? e);
+      return false;
+    }
   }
   // Android: add RC_API_KEY_ANDROID branch here when ready
+  return _rcConfigured;
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
@@ -79,7 +96,11 @@ export function useSubscription() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      ensureRC();
+      const rcReady = ensureRC();
+      if (!rcReady) {
+        // RC not configured (missing key or unsupported platform) — fall through to Supabase fallback
+        throw new Error("RevenueCat not configured");
+      }
       if (me && _rcLoggedInAs !== me) {
         await Purchases.logIn(me);
         _rcLoggedInAs = me;
@@ -141,7 +162,10 @@ export function useSubscription() {
   // ── subscribe ─────────────────────────────────────────────────────────────
   const subscribe = useCallback(async (plan: SubPlan): Promise<boolean> => {
     try {
-      ensureRC();
+      if (!ensureRC()) {
+        Alert.alert("Not available", "In-app purchases are not configured.");
+        return false;
+      }
       const offerings = await Purchases.getOfferings();
       const current = offerings.current;
       if (!current) {
@@ -181,7 +205,10 @@ export function useSubscription() {
     if (restoringRef.current) return;
     restoringRef.current = true;
     try {
-      ensureRC();
+      if (!ensureRC()) {
+        Alert.alert("Not available", "In-app purchases are not configured.");
+        return;
+      }
       const info = await Purchases.restorePurchases();
       const active = info.entitlements.active["pro"];
       await load();
