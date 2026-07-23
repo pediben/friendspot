@@ -1,0 +1,37 @@
+diff --git a/node_modules/@expo/env/build/parse.js b/node_modules/@expo/env/build/parse.js
+index df98af6..abba221 100644
+--- a/node_modules/@expo/env/build/parse.js
++++ b/node_modules/@expo/env/build/parse.js
+@@ -5,18 +5,22 @@ Object.defineProperty(exports, "__esModule", {
+ });
+ exports.expand = expand;
+ exports.parse = parse;
+-function _nodeUtil() {
+-  const data = require("node:util");
+-  _nodeUtil = function () {
+-    return data;
+-  };
+-  return data;
+-}
+ function parse(contents) {
+-  const parsed = (0, _nodeUtil().parseEnv)(contents);
++  // Polyfill: util.parseEnv requires Node 20.12+; inline implementation
+   const env = {};
+-  // NOTE(@kitten): In Node <=20.20 some keys are not properly trimmed
+-  for (const key in parsed) env[key.trim()] = parsed[key];
++  const lines = contents.toString().split('\n');
++  for (const line of lines) {
++    const trimmed = line.trim();
++    if (!trimmed || trimmed.startsWith('#')) continue;
++    const idx = trimmed.indexOf('=');
++    if (idx < 0) continue;
++    const key = trimmed.slice(0, idx).trim();
++    let val = trimmed.slice(idx + 1).trim();
++    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
++      val = val.slice(1, -1);
++    }
++    env[key] = val;
++  }
+   return env;
+ }
+ 

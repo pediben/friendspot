@@ -1,46 +1,47 @@
+# Set by expo-router. This enables Fabric-only features from react-native-screens
+ENV['RNS_GAMMA_ENABLED'] ||= '1'
 require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
 require File.join(File.dirname(`node --print "require.resolve('react-native/package.json')"`), "scripts/react_native_pods")
 
 require 'json'
-require 'fileutils'
 podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
+
+def ccache_enabled?(podfile_properties)
+  # Environment variable takes precedence
+  return ENV['USE_CCACHE'] == '1' if ENV['USE_CCACHE']
+
+  # Fall back to Podfile properties
+  podfile_properties['apple.ccacheEnabled'] == 'true'
+end
 
 ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] ||= podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
 ENV['RCT_USE_RN_DEP'] ||= '1' if podfile_properties['ios.buildReactNativeFromSource'] != 'true'
 ENV['RCT_USE_PREBUILT_RNCORE'] ||= '1' if podfile_properties['ios.buildReactNativeFromSource'] != 'true'
 ENV['RCT_HERMES_V1_ENABLED'] ||= '1' if podfile_properties['expo.useHermesV1'] == 'true'
-
-platform :ios, podfile_properties['ios.deploymentTarget'] || '16.0'
-
-install! 'cocoapods',
-  :deterministic_uuids => false
+platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
 
 prepare_react_native_project!
 
-use_autolinking_method_symbol = ('use' + '_native' + '_modules!').to_sym
-origin_autolinking_method = self.method(use_autolinking_method_symbol)
-self.define_singleton_method(use_autolinking_method_symbol) do |*args|
-  if ENV['EXPO_UNSTABLE_CORE_AUTOLINKING'] == '1'
-    Pod::UI.puts('Using expo-modules-autolinking as core autolinking source'.green)
+target 'Friendspot' do
+  use_expo_modules!
+
+  if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
+    config_command = ['node', '-e', "process.argv=['', '', 'config'];require('@react-native-community/cli').run()"];
+  else
     config_command = [
       'node',
       '--no-warnings',
       '--eval',
-      'require(require.resolve(\'expo-modules-autolinking\', { paths: [require.resolve(\'expo/package.json\')] }))(process.argv.slice(1))',
+      'require(\'expo/bin/autolinking\')',
+      'expo-modules-autolinking',
       'react-native-config',
       '--json',
       '--platform',
       'ios'
     ]
-    origin_autolinking_method.call(config_command)
-  else
-    origin_autolinking_method.call()
   end
-end
 
-target 'Friendspot' do
-  use_expo_modules!
-  config = use_native_modules!
+  config = use_native_modules!(config_command)
 
   use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
   use_frameworks! :linkage => ENV['USE_FRAMEWORKS'].to_sym if ENV['USE_FRAMEWORKS']
@@ -58,83 +59,7 @@ target 'Friendspot' do
       installer,
       config[:reactNativePath],
       :mac_catalyst_enabled => false,
-      :ccache_enabled => podfile_properties['apple.ccacheEnabled'] == 'true',
+      :ccache_enabled => ccache_enabled?(podfile_properties),
     )
-
-    # Fix: "duplicate interface definition for class 'RCTRootViewFactory'"
-    #
-    # Background:
-    #   React-Core-prebuilt.xcframework bundles React_RCTAppDelegate headers at:
-    #     Pods/Headers/Public/React-Core-prebuilt/React_RCTAppDelegate/<Header>.h
-    #   CocoaPods also installs the React-RCTAppDelegate SOURCE pod at:
-    #     Pods/Headers/Public/React-RCTAppDelegate/<Header>.h
-    #
-    #   Expo's RCTAppDelegateUmbrella.h imports the umbrella via
-    #     #import <React_RCTAppDelegate/React-RCTAppDelegate-umbrella.h>
-    #   which pulls in ALL headers from the React_RCTAppDelegate module (prebuilt path).
-    #   Other code (e.g., AppDelegate.mm) imports via the flat React-RCTAppDelegate path.
-    #
-    #   Because the two symlinks for each header point to DIFFERENT physical files
-    #   (prebuilt xcframework source vs. node_modules/react-native source),
-    #   Clang's #import inode-deduplication doesn't fire, resulting in:
-    #     "duplicate interface definition for class 'RCTRootViewFactory'"
-    #
-    # Fix:
-    #   Redirect the React-RCTAppDelegate flat symlinks to the same absolute target
-    #   as the React-Core-prebuilt/React_RCTAppDelegate symlinks.  Both import paths
-    #   then resolve to the same inode => #import deduplicates correctly.
-    #   Neither directory is deleted, so all import forms continue to work.
-    if ENV['RCT_USE_PREBUILT_RNCORE'] == '1'
-      ['Public', 'Private'].each do |visibility|
-        prebuilt_dir = File.join(installer.sandbox.root, 'Headers', visibility, 'React-Core-prebuilt', 'React_RCTAppDelegate')
-        source_dir   = File.join(installer.sandbox.root, 'Headers', visibility, 'React-RCTAppDelegate')
-
-        next unless Dir.exist?(prebuilt_dir) && Dir.exist?(source_dir)
-
-        redirected = []
-        Dir.glob(File.join(prebuilt_dir, '*.h')).each do |prebuilt_link|
-          basename    = File.basename(prebuilt_link)
-          source_link = File.join(source_dir, basename)
-
-          next unless File.symlink?(source_link) && File.symlink?(prebuilt_link)
-
-          # Resolve to the absolute real path so the redirect is dir-independent
-          begin
-            abs_target = File.realpath(prebuilt_link)
-          rescue Errno::ENOENT
-            next  # broken prebuilt symlink — skip
-          end
-
-          next if File.realpath(source_link) == abs_target rescue nil  # already unified
-
-          File.delete(source_link)
-          File.symlink(abs_target, source_link)
-          redirected << basename
-        end
-
-        unless redirected.empty?
-          Pod::UI.puts "  [fix] Unified #{redirected.size} React-RCTAppDelegate #{visibility.downcase} symlinks → prebuilt targets (inode dedup active)"
-        end
-      end
-    end
-
-    # This is necessary for Xcode 14+, because it signs resource bundles by default
-    # when building for devices.
-    installer.target_installation_results.pod_target_installation_results
-      .each do |pod_name, target_installation_result|
-      target_installation_result.resource_bundle_targets.each do |resource_bundle_target|
-        resource_bundle_target.build_configurations.each do |config|
-          config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
-        end
-      end
-    end
-  end
-
-  post_integrate do |installer|
-    begin
-      expo_patch_react_imports!(installer)
-    rescue => e
-      Pod::UI.warn e
-    end
   end
 end

@@ -10,20 +10,6 @@
 	<string>Friendspot</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
-	<key>CFBundleIconName</key>
-	<string>AppIcon</string>
-	<key>CFBundleIcons</key>
-	<dict>
-		<key>CFBundlePrimaryIcon</key>
-		<dict>
-			<key>CFBundleIconFiles</key>
-			<array>
-				<string>AppIcon</string>
-			</array>
-			<key>CFBundleIconName</key>
-			<string>AppIcon</string>
-		</dict>
-	</dict>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -47,9 +33,9 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>1</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
+	<string>5</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>12.0</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
@@ -60,15 +46,9 @@
 		<true/>
 	</dict>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>Friendspot adds events to your calendar so you never miss a Spot hangout.</string>
+	<string>Allow Friendspot to add events to your calendar.</string>
 	<key>NSCalendarsUsageDescription</key>
-	<string>Friendspot adds events to your calendar so you never miss a Spot hangout.</string>
-	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
-	<string>Friendspot adds events to your calendar so you never miss a Spot hangout.</string>
-	<key>NSRemindersUsageDescription</key>
-	<string>Friendspot can add reminders for your upcoming Spot hangouts.</string>
-	<key>NSRemindersFullAccessUsageDescription</key>
-	<string>Friendspot can add reminders for your upcoming Spot hangouts.</string>
+	<string>Allow Friendspot to add events to your calendar.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Friendspot uses your camera to capture moments.</string>
 	<key>NSContactsUsageDescription</key>
@@ -81,10 +61,16 @@
 	<string>Friendspot saves event photos to your library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Friendspot accesses your photos to share moments with your circles.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Allow $(PRODUCT_NAME) to access your reminders</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Allow $(PRODUCT_NAME) to access your reminders</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
 	</array>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Friendspot notifies you when friends send voice notes or invite you to events.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
@@ -94,7 +80,7 @@
 		<string>arm64</string>
 	</array>
 	<key>UIRequiresFullScreen</key>
-	<true/>
+	<false/>
 	<key>UIStatusBarStyle</key>
 	<string>UIStatusBarStyleDefault</string>
 	<key>UISupportedInterfaceOrientations</key>
@@ -103,7 +89,7 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
 	<key>UIUserInterfaceStyle</key>
-	<string>Light</string>
+	<string>Dark</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 </dict>
